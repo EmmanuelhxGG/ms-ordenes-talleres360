@@ -1,0 +1,129 @@
+{
+  "info": {
+    "name": "ms-talleres360-orders",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8081" },
+    { "key": "orderId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Crear orden",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 201) { pm.collectionVariables.set('orderId', pm.response.json().id); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/orders",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"workshopId\": 1,\n  \"customerName\": \"Juan Perez\",\n  \"customerEmail\": \"juan@mail.com\",\n  \"vehiclePlate\": \"ABCD12\",\n  \"vehicleModel\": \"Toyota Yaris\",\n  \"description\": \"Cambio de aceite y filtro\",\n  \"items\": [\n    { \"productId\": 10, \"quantity\": 2, \"unitPrice\": 15000 },\n    { \"productId\": 22, \"quantity\": 1, \"unitPrice\": 8500 }\n  ]\n}"
+        }
+      }
+    },
+    {
+      "name": "Obtener orden por id",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/orders/{{orderId}}" }
+    },
+    {
+      "name": "Listar todas",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/orders" }
+    },
+    {
+      "name": "Listar con filtros",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/orders?status=RECIBIDA&from=2026-01-01T00:00:00&to=2026-12-31T23:59:59",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "orders"],
+          "query": [
+            { "key": "status", "value": "RECIBIDA" },
+            { "key": "from", "value": "2026-01-01T00:00:00" },
+            { "key": "to", "value": "2026-12-31T23:59:59" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Editar orden (solo RECIBIDA)",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/orders/{{orderId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"workshopId\": 1,\n  \"customerName\": \"Juan Perez\",\n  \"customerEmail\": \"juan@mail.com\",\n  \"vehiclePlate\": \"ABCD12\",\n  \"vehicleModel\": \"Toyota Yaris 2020\",\n  \"description\": \"Cambio de aceite, filtro y pastillas\",\n  \"items\": [\n    { \"productId\": 10, \"quantity\": 2, \"unitPrice\": 15000 }\n  ]\n}"
+        }
+      }
+    },
+    {
+      "name": "Estado -> ENTREGADA sin aceptar (espera 409)",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/orders/{{orderId}}/status",
+        "body": { "mode": "raw", "raw": "{ \"status\": \"ENTREGADA\" }" }
+      }
+    },
+    {
+      "name": "Estado -> ACEPTADA",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/orders/{{orderId}}/status",
+        "body": { "mode": "raw", "raw": "{ \"status\": \"ACEPTADA\" }" }
+      }
+    },
+    {
+      "name": "Estado -> EN_REPARACION",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/orders/{{orderId}}/status",
+        "body": { "mode": "raw", "raw": "{ \"status\": \"EN_REPARACION\" }" }
+      }
+    },
+    {
+      "name": "Estado -> LISTA_PARA_ENTREGA",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/orders/{{orderId}}/status",
+        "body": { "mode": "raw", "raw": "{ \"status\": \"LISTA_PARA_ENTREGA\" }" }
+      }
+    },
+    {
+      "name": "Estado -> ENTREGADA",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/orders/{{orderId}}/status",
+        "body": { "mode": "raw", "raw": "{ \"status\": \"ENTREGADA\" }" }
+      }
+    },
+    {
+      "name": "Estado -> CANCELADA",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/orders/{{orderId}}/status",
+        "body": { "mode": "raw", "raw": "{ \"status\": \"CANCELADA\" }" }
+      }
+    },
+    {
+      "name": "Eliminar orden",
+      "request": { "method": "DELETE", "url": "{{baseUrl}}/api/orders/{{orderId}}" }
+    }
+  ]
+}
