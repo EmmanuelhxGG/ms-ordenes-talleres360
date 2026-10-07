@@ -86,6 +86,9 @@ public class WorkOrder {
 	private LocalDateTime acceptedAt;
 	private LocalDateTime deliveredAt;
 
+	// Nullable para conservar órdenes anteriores al cambio de stock.
+	private Long stockRevision;
+
 	@PrePersist
 	void onCreate() {
 		createdAt = LocalDateTime.now();

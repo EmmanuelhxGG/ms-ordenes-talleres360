@@ -19,6 +19,8 @@ public class OutboxEvent {
     @Column(nullable = false, length = 30) private String status;
     @Column(nullable = false, precision = 12, scale = 2) private BigDecimal total;
     @Column(columnDefinition = "text") private String itemsJson;
+    // Null identifica consumos de entregas pendientes creados por la versión anterior.
+    private Long stockRevision;
     @Column(nullable = false) private boolean reportSent;
     @Column(nullable = false) private boolean stockSent;
 }

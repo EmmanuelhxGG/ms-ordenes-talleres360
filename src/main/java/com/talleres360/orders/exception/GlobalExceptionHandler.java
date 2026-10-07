@@ -13,6 +13,12 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+	@ExceptionHandler(org.springframework.web.client.RestClientException.class)
+	public ProblemDetail handleCatalogUnavailable(org.springframework.web.client.RestClientException ex) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
+				"No se pudo confirmar la disponibilidad de los repuestos. Inténtalo nuevamente.");
+	}
+
 	@ExceptionHandler(OrderNotFoundException.class)
 	public ProblemDetail handleNotFound(OrderNotFoundException ex) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());

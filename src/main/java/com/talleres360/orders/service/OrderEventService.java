@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.talleres360.orders.model.OutboxEvent;
 import com.talleres360.orders.model.WorkOrder;
+import com.talleres360.orders.model.OrderStatus;
 import com.talleres360.orders.repository.OutboxRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,10 +29,19 @@ public class OrderEventService {
         e.setOccurredAt(Instant.now());
         e.setStatus(order.getStatus().name());
         e.setTotal(order.getTotal());
-        e.setStockSent(!"ENTREGADA".equals(type));
-        if ("ENTREGADA".equals(type)) {
+        boolean liberar = "CANCELADA".equals(type) || ("ELIMINADA".equals(type)
+                && order.getStatus() != OrderStatus.ENTREGADA);
+        boolean regularizarOrdenAnterior = order.getStockRevision() == null
+                && ("EN_REPARACION".equals(type) || "LISTA_PARA_ENTREGA".equals(type));
+        boolean sincronizar = "ACEPTADA".equals(type) || "INFORME_ACTUALIZADO".equals(type)
+                || (liberar && order.getStockRevision() != null) || regularizarOrdenAnterior;
+        e.setStockSent(!sincronizar);
+        if (sincronizar) {
+            long revision = Math.addExact(order.getStockRevision() == null ? 0 : order.getStockRevision(), 1);
+            order.setStockRevision(revision);
+            e.setStockRevision(revision);
             try {
-                e.setItemsJson(json.writeValueAsString(order.getItems().stream()
+                e.setItemsJson(json.writeValueAsString(liberar ? java.util.List.of() : order.getItems().stream()
                         .map(i -> new StockItem(i.getProductId(), i.getQuantity())).toList()));
             } catch (JsonProcessingException ex) {
                 throw new IllegalStateException("No se pudieron serializar los repuestos", ex);

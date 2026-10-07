@@ -12,6 +12,7 @@ public class CatalogClient {
     private final String key;
 
     public record Product(Long id, String sku, String name, BigDecimal price, int stock, boolean active, boolean available) {}
+    public record Reserva(long revision, java.util.Map<Long, Integer> quantities) {}
 
     public CatalogClient(@Value("${CATALOG_URL:http://localhost:8082}") String baseUrl,
                          @Value("${INTERNAL_API_KEY:}") String key) {
@@ -24,5 +25,9 @@ public class CatalogClient {
     public Product product(Long id) {
         return client.get().uri("/api/products/{id}", id).header("X-Internal-Key", key)
                 .retrieve().body(Product.class);
+    }
+    public Reserva reserva(Long ordenId) {
+        return client.get().uri("/internal/stock-reservations/{id}", ordenId).header("X-Internal-Key", key)
+                .retrieve().body(Reserva.class);
     }
 }

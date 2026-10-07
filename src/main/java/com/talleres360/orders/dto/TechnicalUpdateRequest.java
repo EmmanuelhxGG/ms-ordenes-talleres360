@@ -12,10 +12,10 @@ public record TechnicalUpdateRequest(
 		@NotBlank @Size(min = 10, max = 2000) String workPerformed,
 		@NotNull @PositiveOrZero BigDecimal laborCost,
 		@NotNull @FutureOrPresent LocalDate estimatedDeliveryDate,
-		@NotNull @Valid List<Item> items
+		@NotNull @Size(max = 200) List<@NotNull @Valid Item> items
 ) {
 	public record Item(
 			@NotNull @Positive Long productId,
-			@NotNull @Positive Integer quantity
+			@NotNull @Positive @Max(1000000) Integer quantity
 	) {}
 }

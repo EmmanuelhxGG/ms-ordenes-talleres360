@@ -4,6 +4,7 @@ import com.talleres360.orders.dto.OrderRequest;
 import com.talleres360.orders.dto.OrderResponse;
 import com.talleres360.orders.dto.StatusUpdateRequest;
 import com.talleres360.orders.dto.TechnicalUpdateRequest;
+import com.talleres360.orders.dto.EstadoStockResponse;
 import com.talleres360.orders.model.OrderStatus;
 import com.talleres360.orders.service.WorkOrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,6 +37,12 @@ public class WorkOrderController {
 	@Operation(summary = "Obtener orden por id")
 	public OrderResponse findById(@PathVariable Long id) {
 		return service.findById(id);
+	}
+
+	@GetMapping("/{id}/stock")
+	@Operation(summary = "Consultar repuestos confirmados y sincronización pendiente de la orden")
+	public EstadoStockResponse estadoStock(@PathVariable Long id) {
+		return service.estadoStock(id);
 	}
 
 	@GetMapping

@@ -14,11 +14,11 @@ public record OrderRequest(
 		@NotBlank @Pattern(regexp = "^[A-Za-z0-9]{2}-[A-Za-z0-9]{2}-[A-Za-z0-9]{2}$") String vehiclePlate,
 		@Size(max = 120) @Pattern(regexp = "^[\\p{L}\\p{N} ]*$") String vehicleModel,
 		@Size(min = 10, max = 1000) String description,
-		@Valid List<Item> items
+		@Size(max = 200) List<@NotNull @Valid Item> items
 ) {
 	public record Item(
-			@NotNull Long productId,
-			@NotNull @Positive Integer quantity
+			@NotNull @Positive Long productId,
+			@NotNull @Positive @Max(1000000) Integer quantity
 	) {
 	}
 }

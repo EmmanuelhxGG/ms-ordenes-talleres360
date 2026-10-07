@@ -16,7 +16,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.outbox.enabled=false")
 @AutoConfigureMockMvc
 class WorkOrderControllerTest {
 
@@ -46,6 +46,7 @@ class WorkOrderControllerTest {
 		changeStatus(1, "ENTREGADA").andExpect(status().isConflict());
 
 		changeStatus(1, "ACEPTADA").andExpect(status().isOk()).andExpect(jsonPath("$.acceptedAt").exists());
+		when(catalogClient.reserva(1L)).thenReturn(new CatalogClient.Reserva(1, java.util.Map.of(10L, 2)));
 		mvc.perform(put("/api/orders/1/technical")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(("""
@@ -57,7 +58,14 @@ class WorkOrderControllerTest {
 				.andExpect(jsonPath("$.items[0].description").value("Filtro de aceite"))
 				.andExpect(jsonPath("$.total").value(30000));
 		changeStatus(1, "EN_REPARACION").andExpect(status().isOk());
+		mvc.perform(get("/api/orders/1/stock")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.revision").value(2))
+				.andExpect(jsonPath("$.confirmedRevision").value(1))
+				.andExpect(jsonPath("$.pending").value(true));
 		changeStatus(1, "LISTA_PARA_ENTREGA").andExpect(status().isOk());
+		// No se permite entregar hasta confirmar la última asignación del informe.
+		changeStatus(1, "ENTREGADA").andExpect(status().isConflict());
+		when(catalogClient.reserva(1L)).thenReturn(new CatalogClient.Reserva(2, java.util.Map.of(1L, 1)));
 		changeStatus(1, "ENTREGADA").andExpect(status().isOk()).andExpect(jsonPath("$.deliveredAt").exists());
 
 		mvc.perform(get("/api/orders").param("status", "ENTREGADA"))

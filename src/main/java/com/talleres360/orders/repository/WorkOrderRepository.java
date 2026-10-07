@@ -14,6 +14,10 @@ import java.util.List;
 
 public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long>, JpaSpecificationExecutor<WorkOrder> {
 
+	@org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+	@org.springframework.data.jpa.repository.Query("select o from WorkOrder o where o.id = :id")
+	java.util.Optional<WorkOrder> findLockedById(Long id);
+
 	List<WorkOrder> findByCustomerEmailIgnoreCaseOrderByCreatedAtDesc(String customerEmail);
 
 	boolean existsByWorkshopIdAndAppointmentDateAndStatusNot(Long workshopId, LocalDate appointmentDate, OrderStatus status);
