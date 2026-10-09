@@ -37,6 +37,8 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Configura INTERNAL_API_KEY en .env}
       CATALOG_URL: ${CATALOG_URL:?Configura la URL privada de Catalogo en .env}
       REPORT_URL: ${REPORT_URL:?Configura la URL privada de Reporteria en .env}
+      NOTIFICATIONS_URL: ${NOTIFICATIONS_URL:?Configura la URL privada de Notificaciones en .env}
+      AUDIT_URL: ${AUDIT_URL:?Configura la URL privada de Auditoria en .env}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
     depends_on:
       postgres:

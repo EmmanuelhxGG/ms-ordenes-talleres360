@@ -33,7 +33,6 @@ Las rutas Java parten de `src/main/java/com/talleres360/orders/`.
 | `repository/` | Persistencia, filtros, bloqueo de orden y selección de eventos. |
 | `validation/`, `exception/`, `config/` | RUT, errores de negocio y CORS. |
 | `src/main/resources/application.yml` | Puerto, perfiles H2/PostgreSQL y variables. |
-| `src/test/` | Pruebas de estados, stock, outbox y API. |
 | `compose.yml`, `Dockerfile`, `.env.example` | Despliegue independiente. |
 
 ## Modelo y flujo
@@ -131,6 +130,16 @@ Se bloquean modificaciones concurrentes de una misma orden. El outbox envía apr
 
 La integración es asíncrona, no una transacción distribuida inmediata. Si la asignación no se confirma, la orden puede estar aceptada pero no se entrega. El informe permite reducir/quitar repuestos, o puede cancelarse la orden. `app.outbox.enabled=false` desactiva el publicador para pruebas específicas.
 
+### Auditoría y notificaciones
+
+Cada modificación registra su evento en el outbox dentro de la misma transacción de la orden. Un publicador independiente envía todos los eventos a `AUDIT_URL/internal/events`. Otro envía comandos a `NOTIFICATIONS_URL/internal/commands` cuando se crea, acepta, prepara para entrega, entrega o cancela una orden.
+
+Cada evento relevante genera un correo para el cliente y un ticket para el taller. Los mensajes se guardan como instantáneas: editar o eliminar una orden no altera el contenido de un aviso ya preparado. Los identificadores se conservan en cada reintento y los receptores deduplican. La confirmación indica recepción persistida, no entrega de un correo.
+
+Stock, reportes, auditoría y notificaciones tienen confirmaciones separadas, actualizadas por columna para no sobrescribirse entre publicadores. Auditoría y notificaciones no esperan la confirmación de stock; las ventas conservan la regla existente. Las tareas tienen cuatro hilos de planificación y lotes acotados. Los errores de comunicación mantienen el evento pendiente para volver a intentar. Las filas históricas pueden reenviarse a Auditoría; no se inventan avisos antiguos si no existe una instantánea de notificación.
+
+La conexión actual es HTTP interno con outbox persistente. Los consumidores RabbitMQ/Kafka de los servicios nuevos son opcionales; este publicador no configura brokers ni reemplaza la mensajería exigida por el caso. La alternativa es publicar los mismos contratos mediante esos brokers; evita acoplamiento HTTP, pero requiere su infraestructura y operación.
+
 ## Configuración y ejecución
 
 Crea `.env` junto a `compose.yml`:
@@ -141,6 +150,8 @@ DB_PASSWORD=<CONTRASENA_DE_ESTA_BASE>
 INTERNAL_API_KEY=<CLAVE_COMPARTIDA_CON_BFF_Y_MICROS>
 CATALOG_URL=http://<IP_PRIVADA_EC2_CATALOGO>:8082
 REPORT_URL=http://<IP_PRIVADA_EC2_REPORTES>:8083
+NOTIFICATIONS_URL=http://<IP_PRIVADA_EC2_NOTIFICACIONES>:8084
+AUDIT_URL=http://<IP_PRIVADA_EC2_AUDITORIA>:8085
 CORS_ALLOWED_ORIGINS=http://localhost:5173
 ```
 
@@ -174,10 +185,10 @@ Para esta versión actualizar Catálogo → Órdenes → frontend. JPA añade la
 
 El volumen conserva datos al recrear. `docker compose down -v` lo elimina. `restart: unless-stopped` recupera el servicio al reiniciar Docker/EC2, salvo detención manual; no actualiza Git. Respaldar Órdenes y Catálogo de forma coherente.
 
-## Pruebas
+## Comprobar empaquetado
 
 ```bash
-./mvnw test
+./mvnw -DskipTests package
 ```
 
-PowerShell: `./mvnw.cmd test`. Se verifican estados/API, confirmación de stock, aceptación/informe/cancelación, entrega sin doble descuento, reintentos HTTP, compatibilidad y procesamiento de la última revisión entre más de cien eventos. El 6 de octubre pasaron **8 pruebas locales**. No certifican una ejecución EC2. No publicar `.env`, PEM, tokens ni clave interna.
+PowerShell: `./mvnw.cmd '-DskipTests' package`. La revisión local del 8 de octubre verificó estados, stock, outbox y solicitudes con H2; no certifica una ejecución EC2. Los archivos de pruebas no forman parte de esta versión. No publicar `.env`, PEM, tokens ni clave interna.
