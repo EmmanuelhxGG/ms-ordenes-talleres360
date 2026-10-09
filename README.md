@@ -1,10 +1,18 @@
 # Microservicio de Órdenes de Talleres360
 
-Servicio independiente de solicitudes y órdenes de trabajo. Java 17, Spring Boot 3.5.6, JPA, validación y Lombok. Puerto **8081**; PostgreSQL **orders_db** en Docker, H2 en memoria para desarrollo. Rama **`backend-emmanuel`**. [Repositorio](https://github.com/EmmanuelhxGG/ms-ordenes-talleres360).
+Servicio independiente de solicitudes y órdenes de trabajo. Java 21, Spring Boot 3.5.6, JPA, validación y Lombok. Puerto **8081**; PostgreSQL **orders_db** en Docker, H2 en memoria para desarrollo. Rama **`backend-emmanuel`**. [Repositorio](https://github.com/EmmanuelhxGG/ms-ordenes-talleres360).
 
 Documentación del código al 6 de octubre de 2026. Este repositorio sustituye la parte de órdenes del backend anteriormente agrupado.
 
 ## Responsabilidad y conexiones
+
+Con `MESSAGING_TRANSPORT=broker`, los eventos de negocio del outbox se publican en
+Kafka `orders.events`, mientras las tareas de correo, ticket de taller y
+comprobante PDF se publican en RabbitMQ. Se confirman después del ACK del broker
+y se reintentan si falla la conexión. Catálogo conserva la coordinación HTTP de
+stock; el BFF sigue ofreciendo las consultas HTTP de los cinco microservicios.
+`MESSAGING_TRANSPORT=http` conserva el transporte directo como alternativa
+explícita; no se activan los dos transportes simultáneamente.
 
 Gestiona solicitudes, datos del vehículo/propietario, taller, estados, informe técnico y total. Consulta productos/precios en Catálogo y persiste eventos de negocio en su outbox para enviarlos a Catálogo/Reportería.
 

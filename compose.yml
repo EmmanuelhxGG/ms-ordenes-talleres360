@@ -40,6 +40,13 @@ services:
       NOTIFICATIONS_URL: ${NOTIFICATIONS_URL:?Configura la URL privada de Notificaciones en .env}
       AUDIT_URL: ${AUDIT_URL:?Configura la URL privada de Auditoria en .env}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      MESSAGING_TRANSPORT: ${MESSAGING_TRANSPORT:-http}
+      RABBIT_ADDRESSES: ${RABBIT_ADDRESSES:-localhost:5672}
+      RABBIT_USERNAME: ${RABBIT_USERNAME:-}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD:-}
+      RABBIT_VHOST: ${RABBIT_VHOST:-/}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+      KAFKA_ORDERS_TOPIC: ${KAFKA_ORDERS_TOPIC:-orders.events}
     depends_on:
       postgres:
         condition: service_healthy

@@ -26,6 +26,9 @@ public class OutboxPublisher {
   private final RestClient report;
   private final String key;
 
+  @Value("${app.messaging.transport:http}")
+  private String transporte;
+
   public OutboxPublisher(
       OutboxRepository outbox,
       ObjectMapper json,
@@ -79,6 +82,7 @@ public class OutboxPublisher {
       }
     }
     // Las caídas de Reportería no deben ocupar el lote de stock e impedir aceptar/cancelar órdenes.
+    if ("broker".equals(transporte)) return;
     for (OutboxEvent e : outbox.findTop100ByReportSentFalseAndStockSentTrueOrderByOccurredAtAsc()) {
       if (!e.isReportSent() && e.isStockSent()) {
         try {

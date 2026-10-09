@@ -19,7 +19,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 @Component
-@ConditionalOnProperty(name = "app.outbox.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(
+    name = "app.messaging.transport",
+    havingValue = "http",
+    matchIfMissing = true)
 public class PublicadorIntegraciones {
   private static final Logger log = LoggerFactory.getLogger(PublicadorIntegraciones.class);
   private final OutboxRepository repository;
@@ -27,6 +30,9 @@ public class PublicadorIntegraciones {
   private final RestClient auditoria;
   private final RestClient notificaciones;
   private final String clave;
+
+  @Value("${app.outbox.enabled:true}")
+  private boolean habilitado;
 
   public PublicadorIntegraciones(
       OutboxRepository repository,
@@ -46,6 +52,7 @@ public class PublicadorIntegraciones {
 
   @Scheduled(fixedDelayString = "${OUTBOX_POLL_MS:1000}")
   public void publicarAuditoria() {
+    if (!habilitado) return;
     for (var evento : repository.pendientesAuditoria(PageRequest.of(0, 50))) {
       try {
         auditoria
@@ -65,6 +72,7 @@ public class PublicadorIntegraciones {
 
   @Scheduled(fixedDelayString = "${OUTBOX_POLL_MS:1000}")
   public void publicarNotificaciones() {
+    if (!habilitado) return;
     for (var evento : repository.pendientesNotificaciones(PageRequest.of(0, 50))) {
       try {
         List<ComandoNotificacion> comandos =

@@ -9,6 +9,18 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface OutboxRepository extends JpaRepository<OutboxEvent, String> {
+  @Query(
+      "select e from OutboxEvent e where e.stockSent = true and (e.reportSent = false or"
+          + " e.auditoriaEnviada is null or e.auditoriaEnviada = false) order by e.occurredAt")
+  List<OutboxEvent> pendientesKafka(Pageable limite);
+
+  @Modifying
+  @Transactional
+  @Query(
+      "update OutboxEvent e set e.reportSent = true, e.auditoriaEnviada = true where e.eventId ="
+          + " :id")
+  int confirmarKafka(String id);
+
   // Una revisión fallida no debe impedir procesar una corrección o cancelación posterior.
   @Query(
       """

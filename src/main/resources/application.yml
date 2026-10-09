@@ -2,6 +2,25 @@ server:
   port: ${SERVER_PORT:8081}
 
 spring:
+  rabbitmq:
+    addresses: ${RABBIT_ADDRESSES:localhost:5672}
+    username: ${RABBIT_USERNAME:}
+    password: ${RABBIT_PASSWORD:}
+    virtual-host: ${RABBIT_VHOST:/}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: 10000
+        delivery.timeout.ms: 120000
   task:
     scheduling:
       pool:
@@ -22,6 +41,10 @@ springdoc:
     path: /v3/api-docs
 
 app:
+  messaging:
+    transport: ${MESSAGING_TRANSPORT:http}
+  kafka:
+    topic: ${KAFKA_ORDERS_TOPIC:orders.events}
   cors:
     # Separar varios origenes con coma
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}

@@ -50,9 +50,23 @@ final class PreparadorNotificaciones {
                 ? ""
                 : "\nEntrega estimada: " + orden.getEstimatedDeliveryDate());
     String ticket = mensaje + "\nMotivo del cliente: " + orden.getDescription();
-    return List.of(
-        comando(evento, "CORREO", orden.getCustomerEmail(), asunto, mensaje),
-        comando(evento, "TICKET_TALLER", null, asunto, ticket));
+    var comandos =
+        new java.util.ArrayList<ComandoNotificacion>(
+            List.of(
+                comando(evento, "CORREO", orden.getCustomerEmail(), asunto, mensaje),
+                comando(evento, "TICKET_TALLER", null, asunto, ticket)));
+    if ("ENTREGADA".equals(evento.getType()))
+      comandos.add(
+          comando(
+              evento,
+              "COMPROBANTE",
+              orden.getCustomerEmail(),
+              "Comprobante de atención #" + orden.getId(),
+              mensaje
+                  + "\nTotal: $"
+                  + orden.getTotal()
+                  + " CLP\nComprobante de servicio, no documento tributario."));
+    return comandos;
   }
 
   private static ComandoNotificacion comando(

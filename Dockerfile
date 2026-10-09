@@ -1,5 +1,5 @@
 # ---------- Build ----------
-FROM eclipse-temurin:17-jdk AS build
+FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
 
 # Dependencias primero para aprovechar la cache de capas
@@ -11,7 +11,7 @@ COPY src src
 RUN ./mvnw -q -B -DskipTests package
 
 # ---------- Runtime ----------
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 
 RUN groupadd --system spring && useradd --system --gid spring spring
