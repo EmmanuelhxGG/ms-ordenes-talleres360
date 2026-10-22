@@ -29,7 +29,10 @@ public class WorkOrderController {
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	@Operation(summary = "Crear orden (queda en estado RECIBIDA)")
-	public OrderResponse create(@Valid @RequestBody OrderRequest request, @RequestHeader(value = "X-Actor-Email", required = false) String actor) {
+	public OrderResponse create(@Valid @RequestBody OrderRequest request,
+			@RequestHeader(value = "X-Actor-Email", required = false) String actor,
+			@RequestHeader(value = "X-Actor-Role", required = false) String rol) {
+		if (!"Admin".equals(rol)) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN);
 		return service.create(request, actor);
 	}
 

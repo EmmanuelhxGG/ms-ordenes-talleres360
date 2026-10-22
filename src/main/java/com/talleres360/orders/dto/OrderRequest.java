@@ -6,7 +6,6 @@ import jakarta.validation.constraints.*;
 import java.util.List;
 
 public record OrderRequest(
-		@NotNull @Min(1) @Max(20) Long workshopId,
 		@NotBlank @Size(min = 2, max = 120) @Pattern(regexp = "^[\\p{L}][\\p{L} '-]*$") String customerName,
 		@NotBlank @Email @Size(max = 150) String customerEmail,
 		@NotBlank @Size(max = 12) String customerRut,

@@ -15,7 +15,13 @@ public class ComprasController {
   private final ComprasService service;
   @PostMapping @ResponseStatus(HttpStatus.CREATED)
   public OrderResponse crear(@RequestHeader("X-Customer-Email") String correo,
-      @Valid @RequestBody SolicitudCompra entrada) { return service.crear(correo, entrada); }
+      @RequestHeader(value = "X-Customer-Name-Encoded", required = false) String nombre,
+      @Valid @RequestBody SolicitudCompra entrada) {
+    // La codificación evita enviar nombres Unicode directamente en cabeceras HTTP.
+    String nombreAutenticado = nombre == null ? null : new String(
+        java.util.Base64.getUrlDecoder().decode(nombre), java.nio.charset.StandardCharsets.UTF_8);
+    return service.crear(correo, nombreAutenticado, entrada);
+  }
   @GetMapping
   public List<OrderResponse> propias(@RequestHeader("X-Customer-Email") String correo) {
     return service.propias(correo);

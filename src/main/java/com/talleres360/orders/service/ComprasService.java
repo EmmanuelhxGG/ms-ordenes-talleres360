@@ -3,7 +3,6 @@ package com.talleres360.orders.service;
 import com.talleres360.orders.dto.*;
 import com.talleres360.orders.model.*;
 import com.talleres360.orders.repository.WorkOrderRepository;
-import com.talleres360.orders.validation.RutValidator;
 import java.math.BigDecimal;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +23,7 @@ public class ComprasService {
   }
 
   @Transactional
-  public OrderResponse crear(String correo, SolicitudCompra entrada) {
+  public OrderResponse crear(String correo, String nombreAutenticado, SolicitudCompra entrada) {
     correo = correoInstitucional(correo);
     String id = UUID.fromString(entrada.solicitudId()).toString();
     var anterior = repository.findBySolicitudId(id);
@@ -37,20 +36,19 @@ public class ComprasService {
       entrada.productos().forEach(i -> cantidades.merge(i.productoId(), i.cantidad(), Math::addExact));
       var previas = new TreeMap<Long, Integer>();
       orden.getItems().forEach(i -> previas.merge(i.getProductId(), i.getQuantity(), Math::addExact));
-      if (!cantidades.equals(previas) || !orden.getWorkshopId().equals(entrada.tallerId())
-          || !orden.getCustomerName().equals(entrada.nombre().trim())
-          || !orden.getCustomerRut().equalsIgnoreCase(entrada.rut())
-          || !orden.getCustomerPhone().equals(entrada.telefono()))
+      if (!cantidades.equals(previas))
         throw new IllegalArgumentException("La clave ya corresponde a otra solicitud");
       return OrderResponse.from(orden);
     }
-    if (!RutValidator.isValid(entrada.rut())) throw new IllegalArgumentException("El RUT no es válido");
     var orden = new WorkOrder();
     orden.setSolicitudId(id); orden.setCompraRepuestos(true);
-    orden.setCustomerEmail(correo); orden.setCustomerName(entrada.nombre().trim());
-    orden.setCustomerRut(entrada.rut().toUpperCase(Locale.ROOT));
-    orden.setCustomerPhone(entrada.telefono()); orden.setWorkshopId(entrada.tallerId());
-    orden.setRegionId(entrada.tallerId() <= 7 ? "biobio" : entrada.tallerId() <= 14 ? "maule" : "araucania");
+    orden.setCustomerEmail(correo);
+    String nombre = nombreAutenticado == null ? correo : nombreAutenticado.strip();
+    if (nombre.isBlank()) nombre = correo;
+    if (nombre.length() > 120 || nombre.codePoints().anyMatch(Character::isISOControl))
+      throw new IllegalArgumentException("El nombre de la cuenta autenticada no es válido");
+    orden.setCustomerName(nombre);
+    orden.setWorkshopId(TallerActual.ID);
     orden.setDescription("Solicitud de compra de repuestos para retiro en taller");
     orden.setLaborCost(BigDecimal.ZERO); orden.setStatus(OrderStatus.RECIBIDA);
     var cantidades = new TreeMap<Long, Integer>();

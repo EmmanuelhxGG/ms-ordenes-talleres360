@@ -36,9 +36,8 @@ public class AppointmentController {
 
 	@GetMapping("/availability")
 	public AvailabilityResponse availability(
-			@RequestParam Long workshopId,
 			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
 			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-		return service.availability(workshopId, from, to);
+		return service.availability(from, to);
 	}
 }

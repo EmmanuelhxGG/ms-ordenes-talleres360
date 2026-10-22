@@ -6,8 +6,13 @@ Documentación actualizada el 21 de octubre de 2026. Este repositorio sustituye 
 
 ## Solicitudes de compra y acceso
 
-`POST /api/compras` crea una solicitud idempotente con UUID aportado por el cliente,
-RUT válido, nombre, teléfono, taller y hasta 50 productos distintos. Precios y
+La aplicación representa un único taller: Talleres360, ID interno 1. No hay catálogo
+de veinte sucursales ni selección de regiones. Los datos históricos se conservan
+sin reescribir sus IDs o regiones originales.
+
+`POST /api/compras` crea una solicitud idempotente con UUID y hasta 50 productos
+distintos. No solicita RUT, teléfono, nombre manual ni taller al cliente. El BFF
+deriva nombre/correo del JWT y el servidor asigna el único taller. Precios y
 disponibilidad se consultan en Catálogo; no se confía en precios del navegador.
 `GET /api/compras` devuelve únicamente las compras del correo autenticado.
 La compra usa la misma secuencia automática de órdenes y no inventa una patente.
@@ -58,7 +63,7 @@ Las rutas Java parten de `src/main/java/com/talleres360/orders/`.
 | `controller/` | `WorkOrderController` y `AppointmentController`: contratos HTTP. |
 | `dto/` | Entradas/salidas, validación y `EstadoStockResponse`. |
 | `service/WorkOrderService.java` | CRUD operativo, estados, informe y coordinación de repuestos. |
-| `service/AppointmentService.java` | Crear/listar solicitudes de cliente y validar región/taller. |
+| `service/AppointmentService.java` | Crear/listar agendamientos y validar datos del vehículo, propietario y fecha. |
 | `service/CatalogClient.java` | Consulta de productos y asignaciones confirmadas. |
 | `service/OrderEventService.java` | Eventos y revisiones guardados junto con la orden. |
 | `service/OutboxPublisher.java` | Envíos HTTP, reintentos y confirmación de revisiones. |
@@ -70,18 +75,18 @@ Las rutas Java parten de `src/main/java/com/talleres360/orders/`.
 
 ## Modelo y flujo
 
-`WorkOrder` guarda cliente/correo/RUT/teléfono, patente/modelo, taller, descripción, informe, mano de obra, ítems, total, estado y fechas. Las solicitudes de cliente también guardan año, región, tipo de servicio y día de atención.
+`WorkOrder` guarda identidad del cliente, taller, descripción, ítems, total, estado y fechas. El agendamiento mecánico añade RUT, teléfono, patente, modelo, año, tipo de servicio y día de atención; su informe registra diagnóstico, trabajo y mano de obra. La compra de repuestos no pide datos del propietario ni del vehículo. La región solo se conserva en registros históricos.
 
 | Dato | Significado |
 | --- | --- |
 | `id` | ID automático de la base, al crear. Todos los actores usan la misma tabla. |
-| `workshopId` | ID del taller, repetible entre órdenes. No es el número de pedido. |
+| `workshopId` | ID interno 1 en nuevas solicitudes. Los IDs antiguos se mantienen únicamente en el historial; no son el número de pedido. |
 | `appointmentDate` | Día solicitado para atención. |
 | `estimatedDeliveryDate` | Día estimado de entrega del informe. |
 | `createdAt`, `acceptedAt`, `deliveredAt` | Marcas de creación, aceptación y entrega. |
 | `stockRevision` | Revisión de la asignación requerida por la orden. |
 
-Aceptar no genera otra orden ni cambia su ID. La secuencia puede tener saltos; no reiniciarla para rellenarlos. Los 20 talleres se validan por región: Biobío 1–7, Maule 8–14 y Araucanía 15–20.
+Aceptar no genera otra orden ni cambia su ID. La secuencia puede tener saltos; no reiniciarla para rellenarlos. El servidor fija el taller 1 para toda nueva compra, orden administrativa o agendamiento; no acepta una sede elegida por el navegador.
 
 Estados de atención mecánica: `RECIBIDA → ACEPTADA → EN_REPARACION → LISTA_PARA_ENTREGA → ENTREGADA`. Se permite `CANCELADA` antes de entregar. Entregada y cancelada son terminales. Editar datos generales exige recibida. El informe admite aceptada/en reparación/lista. En atención mecánica, marcar lista exige diagnóstico y trabajo realizado. Las compras de repuestos siguen el flujo abreviado explicado arriba. Admin justifica cambios de estado con al menos diez caracteres.
 
@@ -93,7 +98,7 @@ Los roles de esta tabla se aplican al acceder **a través del BFF**:
 
 | Método/ruta | Función | Rol |
 | --- | --- | --- |
-| `POST /api/orders` | Crear recibida. | Operador/Admin |
+| `POST /api/orders` | Crear recibida. | Admin |
 | `GET /api/orders?status=&from=&to=` | Listar; filtros opcionales por estado y creación. | Operador/Admin |
 | `GET /api/orders/{id}` | Detalle. | Operador/Admin |
 | `PUT /api/orders/{id}` | Editar recibida. | Operador/Admin |
@@ -108,7 +113,6 @@ Ejemplo de creación:
 
 ```json
 {
-  "workshopId": 1,
   "customerName": "Juan Perez",
   "customerEmail": "cliente@ejemplo.cl",
   "customerRut": "12.345.678-5",
@@ -130,9 +134,9 @@ El informe recibe `diagnosis`, `workPerformed`, `laborCost`, `estimatedDeliveryD
 | --- | --- |
 | `POST /api/appointments` | Crear solicitud recibida. |
 | `GET /api/appointments` | Solicitudes del correo autenticado. |
-| `GET /api/appointments/availability?workshopId=1&from=YYYY-MM-DD&to=YYYY-MM-DD` | Valida taller/rango y responde `{"occupiedDates":[]}` en esta versión. |
+| `GET /api/appointments/availability?from=YYYY-MM-DD&to=YYYY-MM-DD` | Valida el rango del único taller y responde `{"occupiedDates":[]}` en esta versión. |
 
-El BFF establece `X-Customer-Email`. La creación recibe `workshopId`, `regionId`, `firstName`, `lastName`, `rut`, `phone`, `vehiclePlate`, `vehicleModel`, `vehicleYear`, `serviceType`, `reason` y `appointmentDate`. Valores de servicio: `MAINTENANCE` y `DIAGNOSTICS`. La fecha es futura y dentro de 90 días. Se admiten múltiples solicitudes del mismo cliente.
+El BFF establece `X-Customer-Email`. El agendamiento mecánico recibe `firstName`, `lastName`, `rut`, `phone`, `vehiclePlate`, `vehicleModel`, `vehicleYear`, `serviceType`, `reason` y `appointmentDate`, sin región ni taller. Valores de servicio: `MAINTENANCE` y `DIAGNOSTICS`. La fecha es futura y dentro de 90 días. Se admiten múltiples solicitudes del mismo cliente. El carrito usa el contrato separado de `/api/compras` sin datos de vehículo/propietario.
 
 La respuesta de disponibilidad descrita no confirma un cupo reservado. Las solicitudes guardan un día, no una hora de atención.
 

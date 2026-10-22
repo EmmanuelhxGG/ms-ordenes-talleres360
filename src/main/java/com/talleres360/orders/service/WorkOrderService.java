@@ -30,6 +30,7 @@ public class WorkOrderService {
 	@Transactional
 	public OrderResponse create(OrderRequest request, String actor) {
 		WorkOrder order = new WorkOrder();
+		order.setWorkshopId(TallerActual.ID);
 		order.setStatus(OrderStatus.RECIBIDA);
 		apply(order, request);
 		OrderResponse response = OrderResponse.from(repository.save(order));
@@ -188,7 +189,6 @@ public class WorkOrderService {
 		if (!RutValidator.isValid(request.customerRut())) {
 			throw new IllegalArgumentException("El RUT ingresado no es válido");
 		}
-		order.setWorkshopId(request.workshopId());
 		order.setCustomerName(request.customerName());
 		order.setCustomerEmail(request.customerEmail());
 		order.setCustomerRut(request.customerRut());

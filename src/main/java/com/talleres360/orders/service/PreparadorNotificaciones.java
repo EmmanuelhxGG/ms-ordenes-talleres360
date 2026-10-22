@@ -36,7 +36,7 @@ final class PreparadorNotificaciones {
             + "\nServicio: "
             + servicio
             + "\nTaller: "
-            + orden.getWorkshopId()
+            + (TallerActual.ID.equals(orden.getWorkshopId()) ? TallerActual.NOMBRE : "Taller histórico #" + orden.getWorkshopId())
             + (orden.isCompraRepuestos() ? "" : "\nVehículo: " + orden.getVehiclePlate())
             + (orden.getAppointmentDate() == null
                 ? ""
