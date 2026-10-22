@@ -2,6 +2,8 @@ server:
   port: ${SERVER_PORT:8081}
 
 spring:
+  flyway:
+    enabled: false
   rabbitmq:
     addresses: ${RABBIT_ADDRESSES:localhost:5672}
     username: ${RABBIT_USERNAME:}
@@ -11,16 +13,6 @@ spring:
     publisher-returns: true
     template:
       mandatory: true
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
-      acks: all
-      properties:
-        enable.idempotence: true
-        max.block.ms: 10000
-        delivery.timeout.ms: 120000
   task:
     scheduling:
       pool:
@@ -42,9 +34,7 @@ springdoc:
 
 app:
   messaging:
-    transport: ${MESSAGING_TRANSPORT:http}
-  kafka:
-    topic: ${KAFKA_ORDERS_TOPIC:orders.events}
+    transport: ${MESSAGING_TRANSPORT:rabbit}
   cors:
     # Separar varios origenes con coma
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
@@ -71,6 +61,11 @@ spring:
   config:
     activate:
       on-profile: postgres
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+    locations: classpath:db/migration/postgresql
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/orders_db}
     username: ${DB_USERNAME:talleres360}

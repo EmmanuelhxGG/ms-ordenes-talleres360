@@ -10,4 +10,5 @@ public record ComandoNotificacion(
     String destinatario,
     String asunto,
     String mensaje,
-    Instant occurredAt) {}
+    Instant occurredAt,
+    String comprobanteId) {}

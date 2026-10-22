@@ -11,7 +11,6 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,10 +18,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 @Component
-@ConditionalOnProperty(
-    name = "app.messaging.transport",
-    havingValue = "http",
-    matchIfMissing = true)
 public class PublicadorIntegraciones {
   private static final Logger log = LoggerFactory.getLogger(PublicadorIntegraciones.class);
   private final OutboxRepository repository;
@@ -33,6 +28,9 @@ public class PublicadorIntegraciones {
 
   @Value("${app.outbox.enabled:true}")
   private boolean habilitado;
+
+  @Value("${app.messaging.transport:rabbit}")
+  private String transporte;
 
   public PublicadorIntegraciones(
       OutboxRepository repository,
@@ -72,7 +70,8 @@ public class PublicadorIntegraciones {
 
   @Scheduled(fixedDelayString = "${OUTBOX_POLL_MS:1000}")
   public void publicarNotificaciones() {
-    if (!habilitado) return;
+    // HTTP solo es una alternativa explícita; nunca publica el mismo comando por dos transportes.
+    if (!habilitado || !"http".equals(transporte)) return;
     for (var evento : repository.pendientesNotificaciones(PageRequest.of(0, 50))) {
       try {
         List<ComandoNotificacion> comandos =

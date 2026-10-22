@@ -15,7 +15,6 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -23,50 +22,14 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@ConditionalOnProperty(name = "app.messaging.transport", havingValue = "broker")
+@ConditionalOnProperty(name = "app.messaging.transport", havingValue = "rabbit", matchIfMissing = true)
 public class PublicadorMensajeria {
   private final OutboxRepository repository;
   private final ObjectMapper json;
   private final RabbitTemplate rabbit;
-  private final KafkaTemplate<String, String> kafka;
-
-  @Value("${app.kafka.topic:orders.events}")
-  private String topico;
 
   @Value("${app.outbox.enabled:true}")
   private boolean habilitado;
-
-  @Scheduled(fixedDelayString = "${OUTBOX_POLL_MS:1000}")
-  public void publicarEventos() {
-    if (!habilitado) return;
-    for (var e : repository.pendientesKafka(PageRequest.of(0, 50))) {
-      try {
-        ObjectNode mensaje = json.createObjectNode();
-        mensaje.put("eventId", e.getEventId());
-        mensaje.put("orderId", e.getOrderId());
-        mensaje.put("type", e.getType());
-        mensaje.put("actor", e.getActor());
-        mensaje.put("reason", e.getReason());
-        mensaje.put("occurredAt", e.getOccurredAt().toString());
-        mensaje.put("timestamp", e.getOccurredAt().toString());
-        mensaje.put("status", e.getStatus());
-        mensaje.put("total", e.getTotal());
-        mensaje.put("source", "orders");
-        mensaje.put("traceId", e.getEventId());
-        mensaje.put("correlationId", e.getEventId());
-        kafka
-            .send(topico, e.getOrderId().toString(), json.writeValueAsString(mensaje))
-            .get(15, TimeUnit.SECONDS);
-        repository.confirmarKafka(e.getEventId());
-      } catch (InterruptedException error) {
-        Thread.currentThread().interrupt();
-        return;
-      } catch (Exception error) {
-        log.warn("Evento Kafka pendiente {}: {}", e.getEventId(), error.getClass().getSimpleName());
-        return;
-      }
-    }
-  }
 
   @Scheduled(fixedDelayString = "${OUTBOX_POLL_MS:1000}")
   public void publicarComandos() {

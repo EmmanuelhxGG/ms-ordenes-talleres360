@@ -20,6 +20,10 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long>, Jpa
 
 	List<WorkOrder> findByCustomerEmailIgnoreCaseOrderByCreatedAtDesc(String customerEmail);
 
+	java.util.Optional<WorkOrder> findBySolicitudId(String solicitudId);
+
+	List<WorkOrder> findTop100ByAceptacionPendienteTrueOrderByCreatedAtAsc();
+
 	boolean existsByWorkshopIdAndAppointmentDateAndStatusNot(Long workshopId, LocalDate appointmentDate, OrderStatus status);
 
 	List<WorkOrder> findByWorkshopIdAndAppointmentDateBetweenAndStatusNot(

@@ -37,8 +37,26 @@ public class WorkOrder {
 	@Column(length = 8)
 	private String customerPhone;
 
-	@Column(nullable = false, length = 10)
+	@Column(length = 10)
 	private String vehiclePlate;
+
+	@Column(nullable = false, columnDefinition = "boolean default false")
+	private boolean compraRepuestos;
+
+	@Column(nullable = false, columnDefinition = "boolean default false")
+	private boolean aceptacionPendiente;
+
+	@Column(length = 160)
+	private String actorAceptacion;
+
+	@Column(length = 500)
+	private String motivoAceptacion;
+
+	@Column(length = 500)
+	private String motivoRechazo;
+
+	@Column(length = 36, unique = true)
+	private String solicitudId;
 
 	@Column(length = 120)
 	private String vehicleModel;

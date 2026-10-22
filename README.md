@@ -2,15 +2,38 @@
 
 Servicio independiente de solicitudes y órdenes de trabajo. Java 21, Spring Boot 3.5.6, JPA, validación y Lombok. Puerto **8081**; PostgreSQL **orders_db** en Docker, H2 en memoria para desarrollo. Rama **`backend-emmanuel`**. [Repositorio](https://github.com/EmmanuelhxGG/ms-ordenes-talleres360).
 
-Documentación del código al 6 de octubre de 2026. Este repositorio sustituye la parte de órdenes del backend anteriormente agrupado.
+Documentación actualizada el 21 de octubre de 2026. Este repositorio sustituye la parte de órdenes del backend anteriormente agrupado.
+
+## Solicitudes de compra y acceso
+
+`POST /api/compras` crea una solicitud idempotente con UUID aportado por el cliente,
+RUT válido, nombre, teléfono, taller y hasta 50 productos distintos. Precios y
+disponibilidad se consultan en Catálogo; no se confía en precios del navegador.
+`GET /api/compras` devuelve únicamente las compras del correo autenticado.
+La compra usa la misma secuencia automática de órdenes y no inventa una patente.
+
+Crear no descuenta stock. Al aceptar se guarda una intención durable, aún RECIBIDA,
+con `aceptacionPendiente=true`. Solo después de confirmar la revisión de stock pasa
+a ACEPTADA (en espera). Si Catálogo cae, el outbox reintenta sin aceptar falsamente
+ni descontar dos veces. Sigue LISTA_PARA_ENTREGA y ENTREGADA, sin informe mecánico.
+Rechazar exige motivo. Los servicios históricos mantienen su flujo técnico.
+
+Solo se generan correos nuevos al aceptar, marcar lista y rechazar. El comprobante
+es texto del correo con productos, cantidades y monto, sin PDF ni adjuntos.
+Las ventas se reconocen al entregar.
+
+`POST /api/registros` guarda una petición institucional sin contraseña y
+`GET /api/registros` permite su consulta administrativa vía BFF. No crea usuarios
+ni asigna roles en Entra: esa aprobación es manual. Las migraciones PostgreSQL
+conservan las órdenes, existencias e identificadores anteriores.
 
 ## Responsabilidad y conexiones
 
-Con `MESSAGING_TRANSPORT=broker`, los eventos de negocio del outbox se publican en
-Kafka `orders.events`, mientras las tareas de correo, ticket de taller y
-comprobante PDF se publican en RabbitMQ. Se confirman después del ACK del broker
-y se reintentan si falla la conexión. Catálogo conserva la coordinación HTTP de
-stock; el BFF sigue ofreciendo las consultas HTTP de los cinco microservicios.
+Con `MESSAGING_TRANSPORT=rabbit`, las tareas de correo y ticket de taller
+se publican en RabbitMQ con confirmación y detección de mensajes
+sin ruta. Reportería y Auditoría reciben eventos por HTTP interno desde el outbox,
+con confirmaciones independientes y reintentos. Catálogo conserva HTTP para stock.
+Kafka y su dependencia fueron retirados del servicio.
 `MESSAGING_TRANSPORT=http` conserva el transporte directo como alternativa
 explícita; no se activan los dos transportes simultáneamente.
 
@@ -19,7 +42,9 @@ Gestiona solicitudes, datos del vehículo/propietario, taller, estados, informe 
 ```text
 BFF → Órdenes :8081 → PostgreSQL orders_db
                 ├── Catálogo :8082, por HTTP y clave interna
-                └── Reportería :8083, desde outbox
+                ├── Reportería :8083, desde outbox HTTP
+                ├── Auditoría :8085, desde outbox HTTP
+                └── RabbitMQ → Notificaciones :8084
 ```
 
 BFF valida el JWT y deriva correo/rol. Órdenes recibe esas cabeceras desde BFF y debe quedar accesible solo desde la red autorizada; no valida el JWT por sí mismo. El navegador utiliza BFF/Gateway, nunca este puerto directamente.
@@ -58,7 +83,7 @@ Las rutas Java parten de `src/main/java/com/talleres360/orders/`.
 
 Aceptar no genera otra orden ni cambia su ID. La secuencia puede tener saltos; no reiniciarla para rellenarlos. Los 20 talleres se validan por región: Biobío 1–7, Maule 8–14 y Araucanía 15–20.
 
-Estados: `RECIBIDA → ACEPTADA → EN_REPARACION → LISTA_PARA_ENTREGA → ENTREGADA`. Se permite `CANCELADA` antes de entregar. Entregada y cancelada son terminales. Editar datos generales exige recibida. El informe admite aceptada/en reparación/lista. Marcar lista exige diagnóstico y trabajo realizado. Admin justifica cambios de estado con al menos diez caracteres.
+Estados de atención mecánica: `RECIBIDA → ACEPTADA → EN_REPARACION → LISTA_PARA_ENTREGA → ENTREGADA`. Se permite `CANCELADA` antes de entregar. Entregada y cancelada son terminales. Editar datos generales exige recibida. El informe admite aceptada/en reparación/lista. En atención mecánica, marcar lista exige diagnóstico y trabajo realizado. Las compras de repuestos siguen el flujo abreviado explicado arriba. Admin justifica cambios de estado con al menos diez caracteres.
 
 Total = suma de cantidad × precio de catálogo + mano de obra. No se confía en un precio aportado por el navegador.
 
@@ -146,7 +171,7 @@ Cada evento relevante genera un correo para el cliente y un ticket para el talle
 
 Stock, reportes, auditoría y notificaciones tienen confirmaciones separadas, actualizadas por columna para no sobrescribirse entre publicadores. Auditoría y notificaciones no esperan la confirmación de stock; las ventas conservan la regla existente. Las tareas tienen cuatro hilos de planificación y lotes acotados. Los errores de comunicación mantienen el evento pendiente para volver a intentar. Las filas históricas pueden reenviarse a Auditoría; no se inventan avisos antiguos si no existe una instantánea de notificación.
 
-La conexión actual es HTTP interno con outbox persistente. Los consumidores RabbitMQ/Kafka de los servicios nuevos son opcionales; este publicador no configura brokers ni reemplaza la mensajería exigida por el caso. La alternativa es publicar los mismos contratos mediante esos brokers; evita acoplamiento HTTP, pero requiere su infraestructura y operación.
+Los eventos de Reportería y Auditoría se envían por HTTP interno desde el outbox persistente. RabbitMQ se usa para comandos de Notificaciones. No se publica el mismo comando por HTTP y Rabbit simultáneamente. La configuración anterior `MESSAGING_TRANSPORT=broker` ya no es válida: cambiarla a `rabbit` antes de desplegar. Antes de apagar Kafka, drenar sus eventos pendientes y comprobar que ambas bases los recibieron. No se borran bases ni eventos históricos.
 
 ## Configuración y ejecución
 

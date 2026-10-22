@@ -22,6 +22,19 @@ public class OrderEventService {
   }
 
   public void record(WorkOrder order, String type, String actor, String reason) {
+    registrar(order, type, actor, reason, false, false);
+  }
+
+  public void solicitarStockCompra(WorkOrder order, String actor, String motivo) {
+    registrar(order, "ACTUALIZADA", actor, motivo, true, false);
+  }
+
+  public void confirmarCompra(WorkOrder order, String actor, String motivo) {
+    registrar(order, "ACEPTADA", actor, motivo, false, true);
+  }
+
+  private void registrar(WorkOrder order, String type, String actor, String reason,
+      boolean forzarStock, boolean stockConfirmado) {
     OutboxEvent e = new OutboxEvent();
     e.setEventId(UUID.randomUUID().toString());
     e.setOrderId(order.getId());
@@ -37,11 +50,11 @@ public class OrderEventService {
     boolean regularizarOrdenAnterior =
         order.getStockRevision() == null
             && ("EN_REPARACION".equals(type) || "LISTA_PARA_ENTREGA".equals(type));
-    boolean sincronizar =
+    boolean sincronizar = !stockConfirmado && (forzarStock ||
         "ACEPTADA".equals(type)
             || "INFORME_ACTUALIZADO".equals(type)
             || (liberar && order.getStockRevision() != null)
-            || regularizarOrdenAnterior;
+            || regularizarOrdenAnterior);
     e.setStockSent(!sincronizar);
     if (sincronizar) {
       long revision =

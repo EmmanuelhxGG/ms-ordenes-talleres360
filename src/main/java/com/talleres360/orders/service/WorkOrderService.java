@@ -61,6 +61,8 @@ public class WorkOrderService {
 	@Transactional
 	public OrderResponse update(Long id, OrderRequest request, String actor) {
 		WorkOrder order = getLocked(id);
+		if (order.isCompraRepuestos())
+			throw new InvalidStatusTransitionException("Una solicitud de compra conserva el carrito confirmado por el cliente");
 		if (order.getStatus() != OrderStatus.RECIBIDA) {
 			throw new InvalidStatusTransitionException(
 					"Solo se puede editar una orden en estado RECIBIDA (estado actual: " + order.getStatus() + ")");
@@ -76,7 +78,10 @@ public class WorkOrderService {
 		WorkOrder order = getLocked(id);
 		OrderStatus current = order.getStatus();
 
-		if (!current.canTransitionTo(newStatus)) {
+		boolean saltoCompra = order.isCompraRepuestos() && current == OrderStatus.ACEPTADA
+				&& newStatus == OrderStatus.LISTA_PARA_ENTREGA;
+		if ((!current.canTransitionTo(newStatus) && !saltoCompra)
+				|| order.isCompraRepuestos() && newStatus == OrderStatus.EN_REPARACION) {
 			throw new InvalidStatusTransitionException(
 					"No se puede pasar de " + current + " a " + newStatus
 							+ ". Permitidos: " + current.allowedTransitions());
@@ -84,7 +89,24 @@ public class WorkOrderService {
 		if ("Admin".equals(actorRole) && (reason == null || reason.trim().length() < 10)) {
 			throw new IllegalArgumentException("El administrador debe justificar su intervención (mínimo 10 caracteres)");
 		}
+		if (order.isCompraRepuestos() && newStatus == OrderStatus.CANCELADA) {
+			if (reason == null || reason.trim().length() < 10)
+				throw new IllegalArgumentException("Debes explicar el motivo del rechazo (mínimo 10 caracteres)");
+			order.setMotivoRechazo(reason.trim());
+			order.setAceptacionPendiente(false);
+		}
+		if (order.isCompraRepuestos() && newStatus == OrderStatus.ACEPTADA) {
+			if (!order.isAceptacionPendiente()) {
+				validateStock(order.getItems());
+				order.setAceptacionPendiente(true);
+				order.setActorAceptacion(actor);
+				order.setMotivoAceptacion(reason);
+				events.solicitarStockCompra(order, actor, reason);
+			}
+			return OrderResponse.from(repository.save(order));
+		}
 		if (newStatus == OrderStatus.LISTA_PARA_ENTREGA
+				&& !order.isCompraRepuestos()
 				&& (order.getDiagnosis() == null || order.getDiagnosis().isBlank()
 				|| order.getWorkPerformed() == null || order.getWorkPerformed().isBlank())) {
 			throw new InvalidStatusTransitionException(
@@ -114,6 +136,8 @@ public class WorkOrderService {
 	@Transactional
 	public OrderResponse updateTechnicalDetails(Long id, TechnicalUpdateRequest request, String actor) {
 		WorkOrder order = getLocked(id);
+		if (order.isCompraRepuestos())
+			throw new InvalidStatusTransitionException("La compra de repuestos no incluye informe técnico ni mano de obra");
 		if (order.getStatus() != OrderStatus.ACEPTADA && order.getStatus() != OrderStatus.EN_REPARACION
 				&& order.getStatus() != OrderStatus.LISTA_PARA_ENTREGA) {
 			throw new InvalidStatusTransitionException(
