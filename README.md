@@ -22,7 +22,7 @@ Solo se generan correos nuevos al aceptar, marcar lista y rechazar. El comproban
 es texto del correo con productos, cantidades y monto, sin PDF ni adjuntos.
 Las ventas se reconocen al entregar.
 
-`POST /api/registros` guarda una petición institucional sin contraseña y
+`POST /api/registros` guarda una petición institucional autenticada sin contraseña y
 `GET /api/registros` permite su consulta administrativa vía BFF. No crea usuarios
 ni asigna roles en Entra: esa aprobación es manual. Las migraciones PostgreSQL
 conservan las órdenes, existencias e identificadores anteriores.
