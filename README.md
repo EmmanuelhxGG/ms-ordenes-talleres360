@@ -2,7 +2,7 @@
 
 Servicio independiente de solicitudes y órdenes de trabajo. Java 21, Spring Boot 3.5.6, JPA, validación y Lombok. Puerto **8081**; PostgreSQL **orders_db** en Docker, H2 en memoria para desarrollo. Rama **`backend-emmanuel`**. [Repositorio](https://github.com/EmmanuelhxGG/ms-ordenes-talleres360).
 
-Documentación actualizada el 21 de octubre de 2026. Este repositorio sustituye la parte de órdenes del backend anteriormente agrupado.
+Documentación actualizada el **22 de octubre de 2026**. Este repositorio se despliega de forma independiente. Los ejemplos usan marcadores y datos ficticios, sin información privada de Entra o AWS.
 
 ## Solicitudes de compra y acceso
 
@@ -15,6 +15,10 @@ distintos. No solicita RUT, teléfono, nombre manual ni taller al cliente. El BF
 deriva nombre/correo del JWT y el servidor asigna el único taller. Precios y
 disponibilidad se consultan en Catálogo; no se confía en precios del navegador.
 `GET /api/compras` devuelve únicamente las compras del correo autenticado.
+Compras y solicitudes de registro admiten `@duocuc.cl` y cuentas
+`@tu-tenant.onmicrosoft.com`. El BFF valida el JWT del tenant configurado y exige
+los permisos correspondientes. Los UPN invitados `#EXT#` no se usan como correo;
+se necesita el correo real en los claims autenticados.
 La compra usa la misma secuencia automática de órdenes y no inventa una patente.
 
 Crear no descuenta stock. Al aceptar se guarda una intención durable, aún RECIBIDA,
@@ -42,7 +46,7 @@ Kafka y su dependencia fueron retirados del servicio.
 `MESSAGING_TRANSPORT=http` conserva el transporte directo como alternativa
 explícita; no se activan los dos transportes simultáneamente.
 
-Gestiona solicitudes, datos del vehículo/propietario, taller, estados, informe técnico y total. Consulta productos/precios en Catálogo y persiste eventos de negocio en su outbox para enviarlos a Catálogo/Reportería.
+Gestiona compras, agendamientos y órdenes administrativas del único taller. Consulta productos/precios en Catálogo y persiste eventos en el outbox para coordinar stock, ventas, auditoría y notificaciones. Los datos de vehículo/propietario corresponden al flujo mecánico, no al carrito.
 
 ```text
 BFF → Órdenes :8081 → PostgreSQL orders_db
@@ -60,13 +64,16 @@ Las rutas Java parten de `src/main/java/com/talleres360/orders/`.
 
 | Carpeta/archivo | Contenido |
 | --- | --- |
-| `controller/` | `WorkOrderController` y `AppointmentController`: contratos HTTP. |
+| `controller/` | Contratos de órdenes, agendamientos, compras y solicitudes de registro. |
 | `dto/` | Entradas/salidas, validación y `EstadoStockResponse`. |
 | `service/WorkOrderService.java` | CRUD operativo, estados, informe y coordinación de repuestos. |
 | `service/AppointmentService.java` | Crear/listar agendamientos y validar datos del vehículo, propietario y fecha. |
+| `service/ComprasService.java`, `service/ConfirmadorCompras.java` | Carrito idempotente y aceptación después de confirmar stock. |
+| `service/TallerActual.java` | Identidad del único taller asignada por el servidor. |
 | `service/CatalogClient.java` | Consulta de productos y asignaciones confirmadas. |
 | `service/OrderEventService.java` | Eventos y revisiones guardados junto con la orden. |
 | `service/OutboxPublisher.java` | Envíos HTTP, reintentos y confirmación de revisiones. |
+| `service/PublicadorIntegraciones.java`, `service/PublicadorMensajeria.java` | Auditoría HTTP y comandos RabbitMQ; HTTP como transporte alternativo explícito de notificaciones. |
 | `model/` | `WorkOrder`, `OrderItem`, `OrderStatus`, `ServiceType`, `OutboxEvent`. |
 | `repository/` | Persistencia, filtros, bloqueo de orden y selección de eventos. |
 | `validation/`, `exception/`, `config/` | RUT, errores de negocio y CORS. |
@@ -114,7 +121,7 @@ Ejemplo de creación:
 ```json
 {
   "customerName": "Juan Perez",
-  "customerEmail": "cliente@ejemplo.cl",
+  "customerEmail": "cliente@example.invalid",
   "customerRut": "12.345.678-5",
   "customerPhone": "12345678",
   "vehiclePlate": "HD-JK-17",
@@ -136,9 +143,29 @@ El informe recibe `diagnosis`, `workPerformed`, `laborCost`, `estimatedDeliveryD
 | `GET /api/appointments` | Solicitudes del correo autenticado. |
 | `GET /api/appointments/availability?from=YYYY-MM-DD&to=YYYY-MM-DD` | Valida el rango del único taller y responde `{"occupiedDates":[]}` en esta versión. |
 
-El BFF establece `X-Customer-Email`. El agendamiento mecánico recibe `firstName`, `lastName`, `rut`, `phone`, `vehiclePlate`, `vehicleModel`, `vehicleYear`, `serviceType`, `reason` y `appointmentDate`, sin región ni taller. Valores de servicio: `MAINTENANCE` y `DIAGNOSTICS`. La fecha es futura y dentro de 90 días. Se admiten múltiples solicitudes del mismo cliente. El carrito usa el contrato separado de `/api/compras` sin datos de vehículo/propietario.
+El BFF establece `X-Customer-Email`. El agendamiento mecánico recibe `firstName`, `lastName`, `rut`, `phone`, `vehiclePlate`, `vehicleModel`, `vehicleYear`, `serviceType`, `reason` y `appointmentDate`, sin región ni taller. Valores de servicio: `MAINTENANCE` y `DIAGNOSTICS`. La fecha es futura y dentro de 90 días. Se admiten múltiples solicitudes del mismo cliente.
 
 La respuesta de disponibilidad descrita no confirma un cupo reservado. Las solicitudes guardan un día, no una hora de atención.
+
+### Compras de repuestos
+
+| Método/ruta | Función | Acceso mediante BFF |
+| --- | --- | --- |
+| `POST /api/compras` | Crear o recuperar la misma solicitud por UUID. | Cliente institucional |
+| `GET /api/compras` | Listar únicamente compras del correo autenticado. | Cliente institucional |
+| `POST /api/registros` | Persistir una solicitud local de acceso; devuelve 202. | JWT institucional y scope, sin exigir aún rol Cliente |
+| `GET /api/registros` | Consultar solicitudes locales de acceso. | Admin |
+
+El cuerpo de compra contiene únicamente `solicitudId` (UUID válido) y
+`productos:[{"productoId":1,"cantidad":2}]`. Admite hasta 50 líneas y de 1 a
+1000 unidades por producto, sujeto a disponibilidad. El BFF deriva el correo
+institucional y el nombre del JWT; este último se transmite mediante
+`X-Customer-Name-Encoded` en UTF-8/Base64. No se toman nombre, precio, RUT,
+teléfono, región ni taller del cuerpo. Repetir UUID y carrito devuelve la misma
+orden; reutilizarlo para otro carrito se rechaza. No hay pasarela ni cobro en línea.
+
+Registrar el acceso no crea cuentas o aprobaciones en Entra ni asigna roles. Esa
+gestión la realiza manualmente la persona responsable del directorio.
 
 ## Validaciones
 
@@ -148,8 +175,8 @@ La respuesta de disponibilidad descrita no confirma un cupo reservado. Las solic
 - Teléfono: ocho dígitos; la interfaz muestra el prefijo chileno +56 9.
 - Nombre: letras, espacios, apóstrofes y guiones. Correo: formato válido.
 - Año de solicitud: desde 1900 hasta el año actual + 1; motivo de 10–500 caracteres.
-- Región/taller: asociación válida de la lista de 20.
-- Ítems: hasta 200 líneas, IDs positivos y cantidades entre 1 y 1.000.000; líneas del mismo producto se agrupan para comprobar existencias.
+- Taller: ID interno 1 asignado por el servidor; sin selección de región o sucursal. Los valores antiguos se conservan en el historial.
+- Ítems de órdenes mecánicas: hasta 200 líneas, IDs positivos y cantidades entre 1 y 1.000.000; las líneas del mismo producto se agrupan. El carrito tiene el límite más acotado descrito arriba.
 
 Los DTO son el contrato exacto. Errores de negocio se devuelven como ProblemDetail: 400 validación, 404 orden inexistente, 409 transición/confirmación incompatible y 503 fallo de consulta de Catálogo con mensaje personalizado.
 
@@ -165,24 +192,50 @@ Los DTO son el contrato exacto. Errores de negocio se devuelven como ProblemDeta
 
 Se bloquean modificaciones concurrentes de una misma orden. El outbox envía aproximadamente cada segundo (`OUTBOX_POLL_MS`, por defecto 1000), con lotes de hasta 100 para stock y reportes por separado. Procesa la revisión más reciente de cada orden; una cancelación no queda detrás de revisiones antiguas fallidas. Los reintentos son idempotentes por revisión en Catálogo y por evento en Reportería.
 
-La integración es asíncrona, no una transacción distribuida inmediata. Si la asignación no se confirma, la orden puede estar aceptada pero no se entrega. El informe permite reducir/quitar repuestos, o puede cancelarse la orden. `app.outbox.enabled=false` desactiva el publicador para pruebas específicas.
+La integración es asíncrona, no una transacción distribuida inmediata. En compras,
+la aceptación permanece `RECIBIDA` con `aceptacionPendiente=true` hasta que Catálogo
+confirma la revisión. En órdenes mecánicas, aceptar puede dejar una asignación aún
+pendiente; en ambos casos se impide entregar sin la confirmación necesaria.
+El informe mecánico permite ajustar repuestos; el carrito confirmado no se edita
+por el operador. Cancelar solicita liberar lo asignado. `app.outbox.enabled=false`
+desactiva los publicadores para comprobaciones aisladas.
 
 ### Auditoría y notificaciones
 
-Cada modificación registra su evento en el outbox dentro de la misma transacción de la orden. Un publicador independiente envía todos los eventos a `AUDIT_URL/internal/events`. Otro envía comandos a `NOTIFICATIONS_URL/internal/commands` cuando se crea, acepta, prepara para entrega, entrega o cancela una orden.
+Cada modificación registra su evento en el outbox dentro de la misma transacción.
+Un publicador independiente envía los eventos a `AUDIT_URL/internal/events` y otro
+sincroniza Reportería. Para `ACEPTADA`, `LISTA_PARA_ENTREGA` y `CANCELADA` se preparan
+un correo al cliente y un ticket de taller. Crear, actualizar o marcar entregada
+no genera otro correo nuevo. En compras, el aviso de aceptación se prepara solo
+después de confirmar el stock.
 
-Cada evento relevante genera un correo para el cliente y un ticket para el taller. Los mensajes se guardan como instantáneas: editar o eliminar una orden no altera el contenido de un aviso ya preparado. Los identificadores se conservan en cada reintento y los receptores deduplican. La confirmación indica recepción persistida, no entrega de un correo.
+Los mensajes se guardan como instantáneas: editar o eliminar una orden no altera
+un aviso ya preparado. El correo contiene productos, cantidades, total y, al
+rechazar, su motivo; no genera PDF ni adjuntos. Los identificadores se conservan
+en los reintentos y los receptores deduplican. Una confirmación del broker indica
+recepción del mensaje, no que el proveedor SMTP haya enviado el correo.
 
-Stock, reportes, auditoría y notificaciones tienen confirmaciones separadas, actualizadas por columna para no sobrescribirse entre publicadores. Auditoría y notificaciones no esperan la confirmación de stock; las ventas conservan la regla existente. Las tareas tienen cuatro hilos de planificación y lotes acotados. Los errores de comunicación mantienen el evento pendiente para volver a intentar. Las filas históricas pueden reenviarse a Auditoría; no se inventan avisos antiguos si no existe una instantánea de notificación.
+Stock, reportes, auditoría y notificaciones tienen confirmaciones separadas,
+actualizadas por columna para no sobrescribirse entre publicadores. Los envíos de
+auditoría/notificaciones son independientes del publicador de stock; en compras,
+el evento de aceptación y su aviso se generan después de confirmar la asignación.
+Las tareas tienen cuatro hilos de planificación y lotes acotados. Los errores de
+comunicación mantienen el evento pendiente para volver a intentar. Las filas
+históricas pueden reenviarse a Auditoría; no se inventan avisos antiguos si no
+existe una instantánea de notificación.
 
-Los eventos de Reportería y Auditoría se envían por HTTP interno desde el outbox persistente. RabbitMQ se usa para comandos de Notificaciones. No se publica el mismo comando por HTTP y Rabbit simultáneamente. La configuración anterior `MESSAGING_TRANSPORT=broker` ya no es válida: cambiarla a `rabbit` antes de desplegar. Antes de apagar Kafka, drenar sus eventos pendientes y comprobar que ambas bases los recibieron. No se borran bases ni eventos históricos.
+Los eventos de Reportería y Auditoría se envían por HTTP interno desde el outbox
+persistente. RabbitMQ recibe mensajes persistentes por `cmd.direct`, con rutas
+`email.send` y `workshop.ticket`, publisher confirms y detección de mensajes sin
+ruta. El transporte alternativo `http` utiliza `NOTIFICATIONS_URL/internal/commands`;
+no se activan ambos a la vez. Kafka no forma parte de esta versión.
 
 ## Configuración y ejecución
 
 Crea `.env` junto a `compose.yml`:
 
 ```dotenv
-DB_USERNAME=talleres360
+DB_USERNAME=<USUARIO_BASE_ORDENES>
 DB_PASSWORD=<CONTRASENA_DE_ESTA_BASE>
 INTERNAL_API_KEY=<CLAVE_COMPARTIDA_CON_BFF_Y_MICROS>
 CATALOG_URL=http://<IP_PRIVADA_EC2_CATALOGO>:8082
@@ -190,9 +243,20 @@ REPORT_URL=http://<IP_PRIVADA_EC2_REPORTES>:8083
 NOTIFICATIONS_URL=http://<IP_PRIVADA_EC2_NOTIFICACIONES>:8084
 AUDIT_URL=http://<IP_PRIVADA_EC2_AUDITORIA>:8085
 CORS_ALLOWED_ORIGINS=http://localhost:5173
+MESSAGING_TRANSPORT=rabbit
+RABBIT_ADDRESSES=<HOST_PRIVADO_RABBIT>:5672,<HOST_PRIVADO_RABBIT>:5673
+RABBIT_USERNAME=<USUARIO_RABBIT_AUTORIZADO>
+RABBIT_PASSWORD=<CONTRASENA_PRIVADA_RABBIT>
+RABBIT_VHOST=/
 ```
 
-Las URL no incluyen `/api` ni `/dev`. Este micro no necesita IDs de Azure. Compose establece perfil postgres, puerto y conexión `jdbc:postgresql://postgres:5432/orders_db`; cada base tiene su volumen y credenciales.
+Sustituye todos los marcadores por valores privados de tu instalación. Las URL no
+incluyen `/api` ni `/dev`; `RABBIT_ADDRESSES` usa host:puerto, sin `http://`.
+La credencial Rabbit debe poder publicar en el vhost configurado. Este micro no
+necesita IDs de Azure ni credenciales SMTP. Compose establece perfil postgres,
+puerto y conexión `jdbc:postgresql://postgres:5432/orders_db`; la base tiene su propio
+volumen y credenciales. Copiar `.env.example` sirve para una instalación nueva,
+no para sobrescribir la configuración de una EC2 existente.
 
 Con Git, Docker Engine, Buildx y Compose instalados:
 
@@ -205,7 +269,11 @@ docker compose ps
 docker compose logs --tail=100 ordenes
 ```
 
-Para desarrollo con JDK 17, exporta las variables de Catálogo/Reportería/clave y ejecuta `./mvnw spring-boot:run`; PowerShell: `./mvnw.cmd spring-boot:run`. El perfil local usa H2 y no conserva datos al detener el proceso. Java directo no carga `.env` automáticamente.
+Para desarrollo con JDK 21, exporta las variables de las integraciones y la clave,
+y ejecuta `./mvnw spring-boot:run`; PowerShell: `./mvnw.cmd spring-boot:run`.
+Si verificas únicamente HTTP sin broker, configura explícitamente
+`MESSAGING_TRANSPORT=http`. El perfil local usa H2 y no conserva datos al detener
+el proceso. Java directo no carga `.env` automáticamente.
 
 ## EC2, actualización y conservación
 
@@ -218,7 +286,13 @@ git pull --ff-only origin backend-emmanuel
 docker compose up -d --build
 ```
 
-Para esta versión actualizar Catálogo → Órdenes → frontend. JPA añade las columnas de revisión con `ddl-auto=update`. Las entregas antiguas sin revisión conservan el consumo idempotente anterior. Una orden activa anterior se regulariza al guardar informe o avanzar a reparación/lista; si ya estaba lista, guardar de nuevo su informe antes de entregar. No recalcular entregas históricas, reiniciar secuencias ni reutilizar IDs con reservas existentes.
+Conserva los archivos Compose adicionales de un despliegue existente al ejecutar
+la actualización. PostgreSQL utiliza las migraciones Flyway incluidas y la
+configuración JPA del perfil; no borres tablas para actualizar. Las entregas
+antiguas sin revisión conservan su consumo idempotente anterior. Una orden
+mecánica anterior se regulariza al guardar informe o avanzar a reparación/lista.
+No recalcules entregas históricas, reinicies secuencias ni reutilices IDs con
+reservas existentes. Respalda las bases antes de modificar el esquema.
 
 El volumen conserva datos al recrear. `docker compose down -v` lo elimina. `restart: unless-stopped` recupera el servicio al reiniciar Docker/EC2, salvo detención manual; no actualiza Git. Respaldar Órdenes y Catálogo de forma coherente.
 
@@ -228,4 +302,8 @@ El volumen conserva datos al recrear. `docker compose down -v` lo elimina. `rest
 ./mvnw -DskipTests package
 ```
 
-PowerShell: `./mvnw.cmd '-DskipTests' package`. La revisión local del 8 de octubre verificó estados, stock, outbox y solicitudes con H2; no certifica una ejecución EC2. Los archivos de pruebas no forman parte de esta versión. No publicar `.env`, PEM, tokens ni clave interna.
+PowerShell: `./mvnw.cmd '-DskipTests' package`. Comprueba compilación y empaquetado,
+no una compra autenticada real. Los archivos de pruebas no forman parte de esta
+versión. No publiques `.env`, PEM, tokens, credenciales de base, datos personales
+ni la clave interna. Los IDs y hosts de los ejemplos son marcadores; no sustituyas
+estos ejemplos por valores reales al publicar documentación.

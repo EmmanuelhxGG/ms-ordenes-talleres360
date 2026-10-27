@@ -23,7 +23,7 @@ public class CatalogClient {
         this.key = key;
     }
     public Product product(Long id) {
-        return client.get().uri("/api/products/{id}", id).header("X-Internal-Key", key)
+        return client.get().uri("/internal/products/{id}", id).header("X-Internal-Key", key)
                 .retrieve().body(Product.class);
     }
     public Reserva reserva(Long ordenId) {

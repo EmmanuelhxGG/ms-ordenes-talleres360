@@ -12,14 +12,20 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ComprasService {
+  private static final java.util.regex.Pattern CORREO_PERMITIDO = java.util.regex.Pattern.compile(
+      "(?i)^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@(duocuc[.]cl|[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?[.]onmicrosoft[.]com)$");
   private final WorkOrderRepository repository;
   private final CatalogClient catalogo;
   private final OrderEventService eventos;
 
   public static String correoInstitucional(String correo) {
-    if (correo == null || !correo.trim().matches("(?i)^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@duocuc\\.cl$"))
-      throw new IllegalArgumentException("Debes utilizar tu correo institucional @duocuc.cl");
-    return correo.trim().toLowerCase(Locale.ROOT);
+    if (correo == null)
+      throw new IllegalArgumentException("Debes utilizar una cuenta @duocuc.cl o de un dominio onmicrosoft.com");
+    String normalizado = correo.strip().toLowerCase(Locale.ROOT);
+    if (normalizado.length() > 150 || normalizado.contains("#ext#")
+        || !CORREO_PERMITIDO.matcher(normalizado).matches())
+      throw new IllegalArgumentException("Debes utilizar una cuenta @duocuc.cl o de un dominio onmicrosoft.com");
+    return normalizado;
   }
 
   @Transactional
