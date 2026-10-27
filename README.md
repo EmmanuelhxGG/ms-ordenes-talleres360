@@ -15,9 +15,10 @@ distintos. No solicita RUT, teléfono, nombre manual ni taller al cliente. El BF
 deriva nombre/correo del JWT y el servidor asigna el único taller. Precios y
 disponibilidad se consultan en Catálogo; no se confía en precios del navegador.
 `GET /api/compras` devuelve únicamente las compras del correo autenticado.
-Compras y solicitudes de registro admiten `@duocuc.cl` y cuentas
-`@tu-tenant.onmicrosoft.com`. El BFF valida el JWT del tenant configurado y exige
-los permisos correspondientes. Los UPN invitados `#EXT#` no se usan como correo;
+Las compras admiten `@duocuc.cl` y cuentas `@tu-tenant.onmicrosoft.com` ya habilitadas.
+Las solicitudes nuevas de registro admiten únicamente `@duocuc.cl`, sin crear cuentas
+ni conceder roles automáticamente. El BFF valida el JWT del tenant configurado y
+exige los permisos correspondientes. Los UPN invitados `#EXT#` no se usan como correo;
 se necesita el correo real en los claims autenticados.
 La compra usa la misma secuencia automática de órdenes y no inventa una patente.
 
