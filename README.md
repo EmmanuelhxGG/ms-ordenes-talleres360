@@ -38,6 +38,11 @@ conservan las órdenes, existencias e identificadores anteriores.
 
 ## Responsabilidad y conexiones
 
+Las rutas `/api/**` e `/internal/**` exigen `X-Internal-Key` mediante un filtro
+global. Sin esa credencial no se aceptan los encabezados de identidad del cliente
+ni de actor. El BFF obtiene la identidad del JWT y agrega la clave interna en
+compras, registros, órdenes e historial. La clave nunca se distribuye al frontend.
+
 Con `MESSAGING_TRANSPORT=rabbit`, las tareas de correo y ticket de taller
 se publican en RabbitMQ con confirmación y detección de mensajes
 sin ruta. Reportería y Auditoría reciben eventos por HTTP interno desde el outbox,
