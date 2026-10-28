@@ -50,6 +50,9 @@ public class OutboxEvent {
   @Column(nullable = false)
   private boolean stockSent;
 
+  // Nullable para conservar los eventos anteriores durante la actualización.
+  private Boolean stockFallido = false;
+
   // Nullable para incorporar filas anteriores sin perder eventos históricos.
   private Boolean auditoriaEnviada = false;
   private Boolean notificacionesEnviadas = false;

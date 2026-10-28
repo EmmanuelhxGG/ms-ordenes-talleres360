@@ -46,6 +46,9 @@ public class WorkOrder {
 	@Column(nullable = false, columnDefinition = "boolean default false")
 	private boolean aceptacionPendiente;
 
+	@Column(length = 500)
+	private String errorAceptacion;
+
 	@Column(length = 160)
 	private String actorAceptacion;
 

@@ -12,7 +12,7 @@ public interface OutboxRepository extends JpaRepository<OutboxEvent, String> {
   // Una revisión fallida no debe impedir procesar una corrección o cancelación posterior.
   @Query(
       """
-      select e from OutboxEvent e where e.stockSent = false and
+      select e from OutboxEvent e where e.stockSent = false and coalesce(e.stockFallido, false) = false and
       (e.stockRevision is null or not exists (
           select n from OutboxEvent n where n.orderId = e.orderId and n.stockRevision > e.stockRevision
       )) order by e.occurredAt asc
@@ -23,7 +23,7 @@ public interface OutboxRepository extends JpaRepository<OutboxEvent, String> {
   @Transactional
   @Query(
       "update OutboxEvent e set e.stockSent = true where e.orderId = :ordenId and e.stockRevision"
-          + " <= :revision")
+          + " <= :revision and coalesce(e.stockFallido, false) = false")
   int confirmarRevisiones(Long ordenId, Long revision);
 
   List<OutboxEvent> findTop100ByReportSentFalseAndStockSentTrueOrderByOccurredAtAsc();

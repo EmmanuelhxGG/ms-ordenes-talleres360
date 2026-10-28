@@ -37,7 +37,8 @@ public record OrderResponse(
 		LocalDateTime deliveredAt,
 		boolean compraRepuestos,
 		boolean aceptacionPendiente,
-		String motivoRechazo
+		String motivoRechazo,
+		String errorAceptacion
 ) {
 	public record Item(Long id, Long productId, String description, Integer quantity, BigDecimal unitPrice, BigDecimal subtotal) {
 		static Item from(OrderItem i) {
@@ -55,6 +56,6 @@ public record OrderResponse(
 				o.getStatus(), o.getTotal(),
 				o.getItems().stream().map(Item::from).toList(),
 				o.getCreatedAt(), o.getUpdatedAt(), o.getAcceptedAt(), o.getDeliveredAt(),
-				o.isCompraRepuestos(), o.isAceptacionPendiente(), o.getMotivoRechazo());
+				o.isCompraRepuestos(), o.isAceptacionPendiente(), o.getMotivoRechazo(), o.getErrorAceptacion());
 	}
 }

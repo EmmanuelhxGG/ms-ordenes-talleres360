@@ -18,6 +18,7 @@ public class GlobalExceptionHandler {
         var problema = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         problema.setProperty("codigo", ex.getCodigo());
         problema.setProperty("productoId", ex.getProductoId());
+        problema.setProperty("nombreProducto", ex.getNombreProducto());
         return problema;
     }
 

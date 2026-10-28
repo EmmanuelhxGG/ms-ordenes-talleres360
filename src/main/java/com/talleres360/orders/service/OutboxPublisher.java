@@ -25,15 +25,18 @@ public class OutboxPublisher {
   private final RestClient catalog;
   private final RestClient report;
   private final String key;
+  private final ResolutorAceptacion resolutor;
 
   public OutboxPublisher(
       OutboxRepository outbox,
       ObjectMapper json,
+      ResolutorAceptacion resolutor,
       @Value("${CATALOG_URL:http://localhost:8082}") String catalogUrl,
       @Value("${REPORT_URL:http://localhost:8083}") String reportUrl,
       @Value("${INTERNAL_API_KEY:}") String key) {
     this.outbox = outbox;
     this.json = json;
+    this.resolutor = resolutor;
     this.key = key;
     SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
     factory.setConnectTimeout(2_000);
@@ -72,6 +75,10 @@ public class OutboxPublisher {
             outbox.confirmarRevisiones(e.getOrderId(), e.getStockRevision());
             e.setStockSent(true);
           }
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+          if (!resolverConflicto(e, ex)) {
+            log.warn("Stock pendiente para evento {}: HTTP {}", e.getEventId(), ex.getStatusCode().value());
+          }
         } catch (Exception ex) {
           log.warn(
               "Stock pendiente para evento {}: {}", e.getEventId(), ex.getClass().getSimpleName());
@@ -107,6 +114,22 @@ public class OutboxPublisher {
               ex.getClass().getSimpleName());
         }
       }
+    }
+  }
+
+  private boolean resolverConflicto(OutboxEvent evento,
+      org.springframework.web.client.RestClientResponseException error) {
+    if (error.getStatusCode().value() != 409 || evento.getStockRevision() == null) return false;
+    try {
+      var problema = json.readTree(error.getResponseBodyAsString());
+      if (!"RESERVA_SIN_DISPONIBILIDAD".equals(problema.path("codigo").asText())) return false;
+      String nombre = problema.path("nombreProducto").asText("");
+      resolutor.sinDisponibilidad(evento, nombre.length() > 120 ? nombre.substring(0, 120) : nombre);
+      return true;
+    } catch (Exception fallo) {
+      log.warn("No se pudo registrar el conflicto de stock del evento {} ({})",
+          evento.getEventId(), fallo.getClass().getSimpleName());
+      return false;
     }
   }
 

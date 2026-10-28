@@ -1,5 +1,17 @@
 # Microservicio de Órdenes de Talleres360
 
+## Conflictos al aceptar compras
+
+Antes de solicitar la reserva se valida la disponibilidad. Si falta stock,
+responde HTTP 409 (`ACEPTACION_SIN_STOCK`, `productoId`, `nombreProducto`) y
+conserva la solicitud recibida. Si otra compra consume el stock entre esa
+validación y la reserva, el outbox registra el intento como `stockFallido`,
+desactiva `aceptacionPendiente` y guarda `errorAceptacion` para el operador.
+Este conflicto no confirma la aceptación ni genera su correo. El operador
+puede rechazar con motivo o reintentar explícitamente cuando haya disponibilidad.
+Los errores temporales de conexión o del servicio conservan el reintento.
+La migración V4 agrega campos opcionales sin eliminar órdenes ni eventos.
+
 ## Actualización: errores de disponibilidad (28-10-2026)
 
 Al crear una compra se agrupan las líneas por producto y se comprueba su

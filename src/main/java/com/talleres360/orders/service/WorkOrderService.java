@@ -97,6 +97,7 @@ public class WorkOrderService {
 		if (order.isCompraRepuestos() && newStatus == OrderStatus.ACEPTADA) {
 			if (!order.isAceptacionPendiente()) {
 				validateStock(order.getItems());
+				order.setErrorAceptacion(null);
 				order.setAceptacionPendiente(true);
 				order.setActorAceptacion(actor);
 				order.setMotivoAceptacion(reason);
@@ -222,8 +223,10 @@ public class WorkOrderService {
 		for (var entry : requested.entrySet()) {
 			var product = catalogClient.product(entry.getKey());
 			int incremento = entry.getValue() - asignadas.getOrDefault(entry.getKey(), 0);
-			if (product == null || incremento > 0 && (!product.active() || product.stock() < incremento)) {
-				throw new IllegalArgumentException("El producto seleccionado no tiene stock suficiente");
+			if (incremento > 0 && (product == null || !product.active() || !product.available() && product.stock() > 0 || product.stock() < incremento)) {
+				throw new com.talleres360.orders.exception.DisponibilidadProductoException(
+					"ACEPTACION_SIN_STOCK", entry.getKey(), product == null ? null : product.name(),
+					"No se puede aceptar la solicitud: un producto no está disponible en la cantidad solicitada");
 			}
 		}
 	}

@@ -28,6 +28,7 @@ public class ConfirmadorCompras {
           var reserva = catalogo.reserva(orden.getId());
           if (reserva == null || orden.getStockRevision() == null || reserva.revision() < orden.getStockRevision()) return;
           orden.setAceptacionPendiente(false); orden.setStatus(OrderStatus.ACEPTADA);
+          orden.setErrorAceptacion(null);
           orden.setAcceptedAt(LocalDateTime.now());
           eventos.confirmarCompra(orden, orden.getActorAceptacion(), orden.getMotivoAceptacion());
         });
