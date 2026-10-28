@@ -69,4 +69,4 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/orders_db}
     username: ${DB_USERNAME:talleres360}
-    password: ${DB_PASSWORD:talleres360}
+    password: ${DB_PASSWORD}
