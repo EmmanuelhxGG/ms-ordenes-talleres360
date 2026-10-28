@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.talleres360.orders.dto.ComandoNotificacion;
+import com.talleres360.orders.config.TopologiaRabbit;
 import com.talleres360.orders.repository.OutboxRepository;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -27,6 +28,7 @@ public class PublicadorMensajeria {
   private final OutboxRepository repository;
   private final ObjectMapper json;
   private final RabbitTemplate rabbit;
+  private final TopologiaRabbit topologia;
 
   @Value("${app.outbox.enabled:true}")
   private boolean habilitado;
@@ -39,13 +41,7 @@ public class PublicadorMensajeria {
         List<ComandoNotificacion> comandos =
             json.readValue(e.getNotificacionesJson(), new TypeReference<>() {});
         for (var comando : comandos) {
-          String ruta =
-              switch (comando.tipo()) {
-                case "CORREO" -> "email.send";
-                case "TICKET_TALLER" -> "workshop.ticket";
-                case "COMPROBANTE" -> "invoice.gen";
-                default -> throw new IllegalArgumentException("Tipo de tarea desconocido");
-              };
+          String ruta = topologia.destino(comando.tipo()).ruta();
           ObjectNode cuerpo = json.valueToTree(comando);
           cuerpo.put("type", comando.tipo());
           cuerpo.put("eventId", e.getEventId());
@@ -54,7 +50,7 @@ public class PublicadorMensajeria {
           cuerpo.put("correlationId", e.getEventId());
           var confirmacion = new CorrelationData(comando.commandId());
           rabbit.convertAndSend(
-              "cmd.direct",
+              topologia.getDirecto(),
               ruta,
               cuerpo,
               mensaje -> {

@@ -322,3 +322,13 @@ no una compra autenticada real. Los archivos de pruebas no forman parte de esta
 versión. No publiques `.env`, PEM, tokens, credenciales de base, datos personales
 ni la clave interna. Los IDs y hosts de los ejemplos son marcadores; no sustituyas
 estos ejemplos por valores reales al publicar documentación.
+
+## Configuración RabbitMQ para EP3
+
+Los nombres, rutas y patrones están centralizados en
+`src/main/java/com/talleres360/orders/config/TopologiaRabbit.java`, con prefijo
+`app.rabbit.topologia`. `DeclaracionTopologiaRabbit` declara seis beans Queue,
+tres Exchange y nueve Binding con los argumentos de las colas quorum existentes.
+`PublicadorMensajeria` consulta esa configuración y conserva su outbox,
+identificadores persistentes, publisher confirms y comprobación de retornos.
+No se confirma la tarea del outbox hasta que RabbitMQ confirma su enrutamiento.
