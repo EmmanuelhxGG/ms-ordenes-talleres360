@@ -1,5 +1,15 @@
 # Microservicio de Órdenes de Talleres360
 
+## Actualización: errores de disponibilidad (28-10-2026)
+
+Al crear una compra se agrupan las líneas por producto y se comprueba su
+disponibilidad real en Catálogo. Si falta stock devuelve HTTP 409 con
+`codigo=STOCK_INSUFICIENTE` y `productoId`; si está deshabilitado/no disponible,
+`codigo=PRODUCTO_NO_DISPONIBLE`. El mensaje no expone la cantidad exacta de stock.
+No se guarda orden ni outbox para esa solicitud rechazada. El descuento sigue
+ocurriendo al aceptar con asignación confirmada, no al enviar el carrito.
+
+
 Servicio independiente de solicitudes y órdenes de trabajo. Java 21, Spring Boot 3.5.6, JPA, validación y Lombok. Puerto **8081**; PostgreSQL **orders_db** en Docker, H2 en memoria para desarrollo. Rama **`backend-emmanuel`**. [Repositorio](https://github.com/EmmanuelhxGG/ms-ordenes-talleres360).
 
 Documentación actualizada el **22 de octubre de 2026**. Este repositorio se despliega de forma independiente. Los ejemplos usan marcadores y datos ficticios, sin información privada de Entra o AWS.

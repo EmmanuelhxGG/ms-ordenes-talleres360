@@ -3,6 +3,7 @@ package com.talleres360.orders.service;
 import com.talleres360.orders.dto.*;
 import com.talleres360.orders.model.*;
 import com.talleres360.orders.repository.WorkOrderRepository;
+import com.talleres360.orders.exception.DisponibilidadProductoException;
 import java.math.BigDecimal;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
@@ -61,8 +62,14 @@ public class ComprasService {
     entrada.productos().forEach(i -> cantidades.merge(i.productoId(), i.cantidad(), Math::addExact));
     var items = cantidades.entrySet().stream().map(e -> {
       var p = catalogo.product(e.getKey());
-      if (p == null || !p.active() || e.getValue() > p.stock() || e.getValue() > 1000)
-        throw new IllegalArgumentException("Un producto ya no está disponible en la cantidad solicitada");
+      if (p == null || !p.active() || (!p.available() && p.stock() > 0))
+        throw new DisponibilidadProductoException("PRODUCTO_NO_DISPONIBLE", e.getKey(),
+            "Este producto está deshabilitado o ya no está disponible. Retíralo del carrito.");
+      if (e.getValue() > p.stock())
+        throw new DisponibilidadProductoException("STOCK_INSUFICIENTE", e.getKey(),
+            "No hay stock suficiente para la cantidad solicitada. Reduce la cantidad e inténtalo nuevamente.");
+      if (e.getValue() > 1000)
+        throw new IllegalArgumentException("La cantidad máxima por producto es 1000");
       var item = new OrderItem(); item.setProductId(p.id()); item.setDescription(p.name());
       item.setQuantity(e.getValue()); item.setUnitPrice(p.price()); return item;
     }).toList();

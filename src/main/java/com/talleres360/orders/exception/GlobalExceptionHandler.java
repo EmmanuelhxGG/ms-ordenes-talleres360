@@ -13,6 +13,14 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(DisponibilidadProductoException.class)
+    public ProblemDetail handleDisponibilidad(DisponibilidadProductoException ex) {
+        var problema = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problema.setProperty("codigo", ex.getCodigo());
+        problema.setProperty("productoId", ex.getProductoId());
+        return problema;
+    }
+
 	@ExceptionHandler(org.springframework.web.client.RestClientException.class)
 	public ProblemDetail handleCatalogUnavailable(org.springframework.web.client.RestClientException ex) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
