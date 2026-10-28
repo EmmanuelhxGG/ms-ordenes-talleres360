@@ -25,12 +25,21 @@ La compra usa la misma secuencia automática de órdenes y no inventa una patent
 Crear no descuenta stock. Al aceptar se guarda una intención durable, aún RECIBIDA,
 con `aceptacionPendiente=true`. Solo después de confirmar la revisión de stock pasa
 a ACEPTADA (en espera). Si Catálogo cae, el outbox reintenta sin aceptar falsamente
-ni descontar dos veces. Sigue LISTA_PARA_ENTREGA y ENTREGADA, sin informe mecánico.
-Rechazar exige motivo. Los servicios históricos mantienen su flujo técnico.
+ni descontar dos veces. Sigue EN_PREPARACION, LISTA_PARA_ENTREGA y ENTREGADA, sin informe mecánico.
+Solo Operador cambia estados y puede cancelar con motivo antes de la entrega.
+Admin consulta sin modificar y no existe creación manual ni eliminación pública
+de órdenes. Cliente, Operador y Admin pueden solicitar compras desde su propio
+carrito. Los servicios históricos mantienen su flujo técnico.
 
 Solo se generan correos nuevos al aceptar, marcar lista y rechazar. El comprobante
 es texto del correo con productos, cantidades y monto, sin PDF ni adjuntos.
 Las ventas se reconocen al entregar.
+
+El JSON de correo usa `pedidoId`, `email`, `asunto` y `mensaje`, junto a metadatos
+`commandId`, `tipo` y `occurredAt` para conservar trazabilidad e idempotencia.
+Los mensajes pendientes con nombres anteriores siguen siendo compatibles.
+El operador origina el aviso; la entrega técnica depende del proveedor de correo
+configurado en Notificaciones y no del inicio de sesión de Entra ID.
 
 `POST /api/registros` guarda una petición institucional autenticada sin contraseña y
 `GET /api/registros` permite su consulta administrativa vía BFF. No crea usuarios
@@ -101,7 +110,7 @@ Las rutas Java parten de `src/main/java/com/talleres360/orders/`.
 
 Aceptar no genera otra orden ni cambia su ID. La secuencia puede tener saltos; no reiniciarla para rellenarlos. El servidor fija el taller 1 para toda nueva compra, orden administrativa o agendamiento; no acepta una sede elegida por el navegador.
 
-Estados de atención mecánica: `RECIBIDA → ACEPTADA → EN_REPARACION → LISTA_PARA_ENTREGA → ENTREGADA`. Se permite `CANCELADA` antes de entregar. Entregada y cancelada son terminales. Editar datos generales exige recibida. El informe admite aceptada/en reparación/lista. En atención mecánica, marcar lista exige diagnóstico y trabajo realizado. Las compras de repuestos siguen el flujo abreviado explicado arriba. Admin justifica cambios de estado con al menos diez caracteres.
+Estados de atención mecánica: `RECIBIDA → ACEPTADA → EN_REPARACION → LISTA_PARA_ENTREGA → ENTREGADA`. Se permite `CANCELADA` antes de entregar. Entregada y cancelada son terminales. Editar datos generales exige recibida. El informe admite aceptada/en reparación/lista. En atención mecánica, marcar lista exige diagnóstico y trabajo realizado. Las compras usan `EN_PREPARACION` en lugar de reparación. Solo Operador modifica estados; Admin consulta.
 
 Total = suma de cantidad × precio de catálogo + mano de obra. No se confía en un precio aportado por el navegador.
 
@@ -111,14 +120,14 @@ Los roles de esta tabla se aplican al acceder **a través del BFF**:
 
 | Método/ruta | Función | Rol |
 | --- | --- | --- |
-| `POST /api/orders` | Crear recibida. | Admin |
+| `POST /api/orders` | Creación manual deshabilitada; usar carrito. | Denegado |
 | `GET /api/orders?status=&from=&to=` | Listar; filtros opcionales por estado y creación. | Operador/Admin |
 | `GET /api/orders/{id}` | Detalle. | Operador/Admin |
-| `PUT /api/orders/{id}` | Editar recibida. | Operador/Admin |
-| `PUT /api/orders/{id}/status` | Cambiar estado. | Operador/Admin |
-| `PUT /api/orders/{id}/technical` | Diagnóstico, trabajo, costos y repuestos. | Operador/Admin |
+| `PUT /api/orders/{id}` | Editar atención recibida. | Operador |
+| `PUT /api/orders/{id}/status` | Cambiar estado. | Operador |
+| `PUT /api/orders/{id}/technical` | Diagnóstico, trabajo, costos y repuestos. | Operador |
 | `GET /api/orders/{id}/stock` | Revisión requerida/confirmada y cantidades asignadas. | Operador/Admin |
-| `DELETE /api/orders/{id}` | Eliminar y registrar evento. | Admin |
+| `DELETE /api/orders/{id}` | Eliminación deshabilitada; conservar historial. | Denegado |
 
 Los filtros `from/to` de órdenes usan fecha-hora ISO local, por ejemplo `2026-10-06T00:00:00`; el límite superior del filtro de órdenes es inclusivo.
 
@@ -137,7 +146,7 @@ Ejemplo de creación:
 }
 ```
 
-Cambio de estado: `{"status":"ACEPTADA"}`. Para Admin incluir `reason` con la justificación. El BFF deriva `X-Actor-Email` y `X-Actor-Role` del token.
+Cambio de estado por Operador: `{"status":"ACEPTADA"}`. Para cancelar incluir `reason` con al menos diez caracteres. El BFF deriva `X-Actor-Email` y `X-Actor-Role` del token.
 
 El informe recibe `diagnosis`, `workPerformed`, `laborCost`, `estimatedDeliveryDate` y `items:[{"productId":1,"quantity":2}]`. La fecha estimada es hoy o posterior; diagnóstico/trabajo tienen 10–2000 caracteres. La respuesta stock contiene `revision`, `confirmedRevision`, `pending` y `quantities`: `pending=true` indica que la revisión aún está en proceso de confirmación.
 

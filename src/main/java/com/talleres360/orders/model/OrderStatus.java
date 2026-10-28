@@ -5,6 +5,7 @@ import java.util.Set;
 public enum OrderStatus {
 	RECIBIDA,
 	ACEPTADA,
+	EN_PREPARACION,
 	EN_REPARACION,
 	LISTA_PARA_ENTREGA,
 	ENTREGADA,
@@ -14,7 +15,8 @@ public enum OrderStatus {
 	public Set<OrderStatus> allowedTransitions() {
 		return switch (this) {
 			case RECIBIDA -> Set.of(ACEPTADA, CANCELADA);
-			case ACEPTADA -> Set.of(EN_REPARACION, CANCELADA);
+			case ACEPTADA -> Set.of(EN_REPARACION, EN_PREPARACION, CANCELADA);
+			case EN_PREPARACION -> Set.of(LISTA_PARA_ENTREGA, CANCELADA);
 			case EN_REPARACION -> Set.of(LISTA_PARA_ENTREGA, CANCELADA);
 			case LISTA_PARA_ENTREGA -> Set.of(ENTREGADA, CANCELADA);
 			case ENTREGADA, CANCELADA -> Set.of();

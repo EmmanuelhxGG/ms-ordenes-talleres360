@@ -31,8 +31,15 @@ final class PreparadorNotificaciones {
                 ? "Diagnóstico"
                 : "Mantenciones y arreglos";
     String asunto = "Orden #" + orden.getId() + ": " + estado;
+    String explicacion = switch (evento.getType()) {
+      case "ACEPTADA" -> "Tu solicitud de repuestos fue aceptada. Estamos revisando los productos para coordinar su preparación. Te enviaremos otro aviso cuando puedas retirarlos.";
+      case "LISTA_PARA_ENTREGA" -> "Tu pedido ya está listo para ser retirado por ti en Talleres360. Presenta el número de solicitud para identificar tu pedido. Si necesitas coordinar la entrega, comunícate con el taller.";
+      case "CANCELADA" -> "Tu solicitud fue rechazada o cancelada por el operador. A continuación puedes revisar el motivo informado. Si tienes dudas, comunícate con el taller indicando el número de solicitud.";
+      default -> throw new IllegalArgumentException("Tipo de aviso no permitido");
+    };
     String mensaje =
-        asunto
+        "Hola " + orden.getCustomerName() + ",\n\n" + explicacion + "\n\n" + asunto
+            + "\nGestionado por: " + evento.getActor()
             + "\nServicio: "
             + servicio
             + "\nTaller: "
@@ -49,7 +56,7 @@ final class PreparadorNotificaciones {
                 + " - $" + i.subtotal() + " CLP").collect(java.util.stream.Collectors.joining("\n"))
             + "\nTotal: $" + orden.getTotal() + " CLP"
             + ("CANCELADA".equals(evento.getType()) ? "\nMotivo del rechazo: " + evento.getReason() : "")
-            + ("LISTA_PARA_ENTREGA".equals(evento.getType()) ? "\nSu solicitud está lista para retirar o coordinar su entrega con el taller." : "");
+            + "\n\nGracias por confiar en Talleres360. Este aviso se genera automáticamente a partir de la gestión del operador.";
     String ticket = mensaje + "\nMotivo del cliente: " + orden.getDescription();
     return List.of(
                 comando(evento, "CORREO", orden.getCustomerEmail(), asunto, mensaje),

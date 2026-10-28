@@ -32,8 +32,7 @@ public class WorkOrderController {
 	public OrderResponse create(@Valid @RequestBody OrderRequest request,
 			@RequestHeader(value = "X-Actor-Email", required = false) String actor,
 			@RequestHeader(value = "X-Actor-Role", required = false) String rol) {
-		if (!"Admin".equals(rol)) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN);
-		return service.create(request, actor);
+		throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "Las solicitudes se crean desde el carrito");
 	}
 
 	@GetMapping("/{id}")
@@ -59,7 +58,9 @@ public class WorkOrderController {
 
 	@PutMapping("/{id}")
 	@Operation(summary = "Editar datos de la orden (solo en estado RECIBIDA)")
-	public OrderResponse update(@PathVariable Long id, @Valid @RequestBody OrderRequest request, @RequestHeader(value = "X-Actor-Email", required = false) String actor) {
+	public OrderResponse update(@PathVariable Long id, @Valid @RequestBody OrderRequest request, @RequestHeader(value = "X-Actor-Email", required = false) String actor,
+			@RequestHeader(value = "X-Actor-Role", required = false) String rol) {
+		exigirOperador(rol);
 		return service.update(id, request, actor);
 	}
 
@@ -74,7 +75,9 @@ public class WorkOrderController {
 	@PutMapping("/{id}/technical")
 	@Operation(summary = "Registrar diagnóstico, trabajo realizado, mano de obra y repuestos")
 	public OrderResponse updateTechnicalDetails(
-			@PathVariable Long id, @Valid @RequestBody TechnicalUpdateRequest request, @RequestHeader(value = "X-Actor-Email", required = false) String actor) {
+			@PathVariable Long id, @Valid @RequestBody TechnicalUpdateRequest request, @RequestHeader(value = "X-Actor-Email", required = false) String actor,
+			@RequestHeader(value = "X-Actor-Role", required = false) String rol) {
+		exigirOperador(rol);
 		return service.updateTechnicalDetails(id, request, actor);
 	}
 
@@ -82,6 +85,10 @@ public class WorkOrderController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	@Operation(summary = "Eliminar orden")
 	public void delete(@PathVariable Long id, @RequestHeader(value = "X-Actor-Email", required = false) String actor) {
-		service.delete(id, actor);
+		throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "El historial de solicitudes no se elimina");
+	}
+
+	private void exigirOperador(String rol) {
+		if (!"Operador".equals(rol)) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN);
 	}
 }

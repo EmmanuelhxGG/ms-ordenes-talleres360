@@ -76,21 +76,19 @@ public class WorkOrderService {
 
 	@Transactional
 	public OrderResponse changeStatus(Long id, OrderStatus newStatus, String actor, String actorRole, String reason) {
+		if (!"Operador".equals(actorRole))
+			throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
 		WorkOrder order = getLocked(id);
 		OrderStatus current = order.getStatus();
 
-		boolean saltoCompra = order.isCompraRepuestos() && current == OrderStatus.ACEPTADA
-				&& newStatus == OrderStatus.LISTA_PARA_ENTREGA;
-		if ((!current.canTransitionTo(newStatus) && !saltoCompra)
-				|| order.isCompraRepuestos() && newStatus == OrderStatus.EN_REPARACION) {
+		if (!current.canTransitionTo(newStatus)
+				|| order.isCompraRepuestos() && newStatus == OrderStatus.EN_REPARACION
+				|| !order.isCompraRepuestos() && newStatus == OrderStatus.EN_PREPARACION) {
 			throw new InvalidStatusTransitionException(
 					"No se puede pasar de " + current + " a " + newStatus
 							+ ". Permitidos: " + current.allowedTransitions());
 		}
-		if ("Admin".equals(actorRole) && (reason == null || reason.trim().length() < 10)) {
-			throw new IllegalArgumentException("El administrador debe justificar su intervención (mínimo 10 caracteres)");
-		}
-		if (order.isCompraRepuestos() && newStatus == OrderStatus.CANCELADA) {
+		if (newStatus == OrderStatus.CANCELADA) {
 			if (reason == null || reason.trim().length() < 10)
 				throw new IllegalArgumentException("Debes explicar el motivo del rechazo (mínimo 10 caracteres)");
 			order.setMotivoRechazo(reason.trim());
