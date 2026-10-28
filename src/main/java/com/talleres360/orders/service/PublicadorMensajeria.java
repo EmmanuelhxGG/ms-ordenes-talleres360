@@ -52,15 +52,19 @@ public class PublicadorMensajeria {
           cuerpo.put("timestamp", e.getOccurredAt().toString());
           cuerpo.put("traceId", e.getEventId());
           cuerpo.put("correlationId", e.getEventId());
-          Message mensaje =
-              MessageBuilder.withBody(json.writeValueAsBytes(cuerpo))
-                  .setContentType(MessageProperties.CONTENT_TYPE_JSON)
-                  .setMessageId(comando.commandId())
-                  .setCorrelationId(e.getEventId())
-                  .setDeliveryMode(MessageDeliveryMode.PERSISTENT)
-                  .build();
           var confirmacion = new CorrelationData(comando.commandId());
-          rabbit.send("cmd.direct", ruta, mensaje, confirmacion);
+          rabbit.convertAndSend(
+              "cmd.direct",
+              ruta,
+              cuerpo,
+              mensaje -> {
+                var propiedades = mensaje.getMessageProperties();
+                propiedades.setMessageId(comando.commandId());
+                propiedades.setCorrelationId(e.getEventId());
+                propiedades.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
+                return mensaje;
+              },
+              confirmacion);
           if (!confirmacion.getFuture().get(10, TimeUnit.SECONDS).isAck()
               || confirmacion.getReturned() != null)
             throw new IllegalStateException("El broker no confirmó el enrutamiento");
