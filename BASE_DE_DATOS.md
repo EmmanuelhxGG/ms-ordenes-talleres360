@@ -53,3 +53,23 @@ misma instancia de base de datos.
 Las tablas y columnas de aplicación están en español. Los historiales de Flyway
 conservan sus columnas técnicas para mantener compatibilidad con esa herramienta.
 Los contratos JSON del BFF y del frontend no cambian por este renombrado físico.
+
+## Justificación de la base central
+
+Se utiliza una sola PostgreSQL para simplificar la operación del laboratorio,
+los respaldos y la revisión de tablas y datos desde una única conexión. Los
+microservicios siguen desplegados por separado y se comunican mediante sus API
+y RabbitMQ; cada uno tiene un usuario SQL y es responsable de sus propias tablas.
+El frontend y el BFF nunca acceden directamente a PostgreSQL.
+
+La separación de permisos evita que un servicio modifique las tablas de otro.
+No se incorporan consultas cruzadas ni relaciones SQL entre dominios: las
+solicitudes, el catálogo y las notificaciones conservan sus responsabilidades.
+
+La contrapartida es que PostgreSQL y la EC2 que lo aloja son una dependencia
+compartida. Una caída de esa instancia afecta a todos los servicios que necesitan
+persistencia. Una alternativa para producción es separar las bases por servicio;
+permite mayor independencia operativa y de escalado, pero aumenta el trabajo de
+administración y de presentación de datos. Centralizar el almacenamiento no
+convierte por sí solo varias escrituras de distintos servicios en una transacción
+única; la coordinación de existencias y mensajes sigue a cargo de la aplicación.
