@@ -22,6 +22,20 @@ final class PreparadorNotificaciones {
   private PreparadorNotificaciones() {}
 
   static List<ComandoNotificacion> preparar(WorkOrder orden, OutboxEvent evento) {
+    if ("ENTREGADA".equals(evento.getType())) {
+      String detalle = "TALLERES360 - COMPROBANTE DE ENTREGA\n"
+          + "Solicitud #" + orden.getId() + "\nFecha: " + evento.getOccurredAt()
+          + "\nCliente: " + orden.getCustomerName() + "\nCorreo: " + orden.getCustomerEmail()
+          + "\nEntregado por: " + evento.getActor() + "\n\nProductos:\n"
+          + orden.getItems().stream().map(i -> i.getDescription() + " x " + i.getQuantity()
+              + " | Precio unitario: $" + i.getUnitPrice() + " | Subtotal: $" + i.subtotal() + " CLP")
+              .collect(java.util.stream.Collectors.joining("\n"))
+          + "\nMano de obra: $" + (orden.getLaborCost() == null ? 0 : orden.getLaborCost())
+          + "\nTOTAL: $" + orden.getTotal() + " CLP\n\n"
+          + "Comprobante interno de entrega. No acredita un pago ni corresponde a una boleta tributaria.";
+      return List.of(comando(evento, "COMPROBANTE", orden.getCustomerEmail(),
+          "Comprobante de entrega - Solicitud #" + orden.getId(), detalle));
+    }
     String estado = ESTADOS.get(evento.getType());
     if (estado == null) return List.of();
     String servicio = orden.isCompraRepuestos() ? "Compra de repuestos" :

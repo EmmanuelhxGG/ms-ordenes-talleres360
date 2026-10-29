@@ -1,5 +1,12 @@
 # Microservicio de Órdenes de Talleres360
 
+## Comprobante de entrega
+
+Confirmar `ENTREGADA` guarda en el mismo outbox un comando `COMPROBANTE` con
+identificador estable y el detalle de productos y total. Se publica por RabbitMQ
+en `invoice.gen` y Notificaciones lo conserva como texto descargable `.txt`.
+No añade un cuarto correo ni representa un pago o una boleta tributaria.
+
 ## Conflictos al aceptar compras
 
 Antes de solicitar la reserva se valida la disponibilidad. Si falta stock,
