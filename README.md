@@ -1,5 +1,13 @@
 # Microservicio de Órdenes de Talleres360
 
+## Base de datos compartida
+
+La configuración actual usa una sola PostgreSQL `talleres360` para los cinco
+microservicios. `compose.yml` levanta solo esta aplicación y exige `DB_URL`.
+Consulta [BASE_DE_DATOS.md](BASE_DE_DATOS.md) para conexión y comandos de consulta.
+Los ejemplos antiguos con una base por servicio describen el despliegue anterior.
+
+
 ## Comprobante de entrega
 
 Confirmar `ENTREGADA` guarda en el mismo outbox un comando `COMPROBANTE` con

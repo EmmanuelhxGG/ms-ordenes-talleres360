@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 
 /** Repuesto/servicio de la orden. productId referencia a ms-talleres360-catalog. */
 @Entity
-@Table(name = "WORK_ORDER_ITEMS")
+@Table(name = "detalle_solicitudes")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -17,22 +17,22 @@ public class OrderItem {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+	@Column(name = "id") private Long id;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "ORDER_ID")
+	@JoinColumn(name = "solicitud_id")
 	private WorkOrder order;
 
-	@Column(nullable = false)
+	@Column(name = "producto_id", nullable = false)
 	private Long productId;
 
-	@Column(length = 160)
+	@Column(name = "descripcion", length = 160)
 	private String description;
 
-	@Column(nullable = false)
+	@Column(name = "cantidad", nullable = false)
 	private Integer quantity;
 
-	@Column(nullable = false, precision = 12, scale = 2)
+	@Column(name = "precio_unitario", nullable = false, precision = 12, scale = 2)
 	private BigDecimal unitPrice;
 
 	public BigDecimal subtotal() {

@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "WORK_ORDERS")
+@Table(name = "solicitudes")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -20,95 +20,95 @@ public class WorkOrder {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+	@Column(name = "id") private Long id;
 
-	@Column(nullable = false)
+	@Column(name = "taller_id", nullable = false)
 	private Long workshopId;
 
-	@Column(nullable = false, length = 120)
+	@Column(name = "nombre_cliente", nullable = false, length = 120)
 	private String customerName;
 
-	@Column(nullable = false, length = 150)
+	@Column(name = "correo_cliente", nullable = false, length = 150)
 	private String customerEmail;
 
-	@Column(length = 12)
+	@Column(name = "rut_cliente", length = 12)
 	private String customerRut;
 
-	@Column(length = 8)
+	@Column(name = "telefono_cliente", length = 8)
 	private String customerPhone;
 
-	@Column(length = 10)
+	@Column(name = "patente_vehiculo", length = 10)
 	private String vehiclePlate;
 
-	@Column(nullable = false, columnDefinition = "boolean default false")
+	@Column(name = "compra_repuestos", nullable = false, columnDefinition = "boolean default false")
 	private boolean compraRepuestos;
 
-	@Column(nullable = false, columnDefinition = "boolean default false")
+	@Column(name = "aceptacion_pendiente", nullable = false, columnDefinition = "boolean default false")
 	private boolean aceptacionPendiente;
 
-	@Column(length = 500)
+	@Column(name = "error_aceptacion", length = 500)
 	private String errorAceptacion;
 
-	@Column(length = 160)
+	@Column(name = "usuario_aceptacion", length = 160)
 	private String actorAceptacion;
 
-	@Column(length = 500)
+	@Column(name = "motivo_aceptacion", length = 500)
 	private String motivoAceptacion;
 
-	@Column(length = 500)
+	@Column(name = "motivo_rechazo", length = 500)
 	private String motivoRechazo;
 
-	@Column(length = 36, unique = true)
+	@Column(name = "identificador_solicitud", length = 36, unique = true)
 	private String solicitudId;
 
-	@Column(length = 120)
+	@Column(name = "modelo_vehiculo", length = 120)
 	private String vehicleModel;
 
-	private Integer vehicleYear;
+	@Column(name = "anio_vehiculo") private Integer vehicleYear;
 
 	@Enumerated(EnumType.STRING)
-	@Column(length = 30)
+	@Column(name = "tipo_servicio", length = 30)
 	private ServiceType serviceType;
 
-	@Column(length = 30)
+	@Column(name = "region_id", length = 30)
 	private String regionId;
 
-	private LocalDate appointmentDate;
+	@Column(name = "fecha_atencion") private LocalDate appointmentDate;
 
-	@Column(length = 1000)
+	@Column(name = "descripcion", length = 1000)
 	private String description;
 
-	@Column(length = 2000)
+	@Column(name = "diagnostico", length = 2000)
 	private String diagnosis;
 
-	@Column(length = 2000)
+	@Column(name = "trabajo_realizado", length = 2000)
 	private String workPerformed;
 
-	@Column(precision = 12, scale = 2)
+	@Column(name = "costo_mano_obra", precision = 12, scale = 2)
 	private BigDecimal laborCost = BigDecimal.ZERO;
 
-	private java.time.LocalDate estimatedDeliveryDate;
-	private LocalDateTime technicalUpdatedAt;
+	@Column(name = "fecha_entrega_estimada") private java.time.LocalDate estimatedDeliveryDate;
+	@Column(name = "informe_actualizado_en") private LocalDateTime technicalUpdatedAt;
 
 	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 30)
+	@Column(name = "estado", nullable = false, length = 30)
 	private OrderStatus status;
 
-	@Column(precision = 12, scale = 2)
+	@Column(name = "total", precision = 12, scale = 2)
 	private BigDecimal total = BigDecimal.ZERO;
 
 	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
 	private List<OrderItem> items = new ArrayList<>();
 
-	@Column(nullable = false, updatable = false)
+	@Column(name = "creada_en", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
 
-	private LocalDateTime updatedAt;
-	private LocalDateTime acceptedAt;
-	private LocalDateTime deliveredAt;
+	@Column(name = "actualizada_en") private LocalDateTime updatedAt;
+	@Column(name = "aceptada_en") private LocalDateTime acceptedAt;
+	@Column(name = "entregada_en") private LocalDateTime deliveredAt;
 
 	// Nullable para conservar órdenes anteriores al cambio de stock.
-	private Long stockRevision;
+	@Column(name = "revision_existencias") private Long stockRevision;
 
 	@PrePersist
 	void onCreate() {

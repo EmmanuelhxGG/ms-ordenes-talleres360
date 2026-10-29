@@ -8,55 +8,55 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "order_outbox")
+@Table(name = "eventos_pendientes")
 @Getter
 @Setter
 @NoArgsConstructor
 public class OutboxEvent {
   @Id
-  @Column(length = 36)
+  @Column(name = "evento_id", length = 36)
   private String eventId;
 
-  @Column(nullable = false)
+  @Column(name = "solicitud_id", nullable = false)
   private Long orderId;
 
-  @Column(nullable = false, length = 60)
+  @Column(name = "tipo", nullable = false, length = 60)
   private String type;
 
-  @Column(nullable = false, length = 160)
+  @Column(name = "usuario_accion", nullable = false, length = 160)
   private String actor;
 
-  @Column(length = 500)
+  @Column(name = "motivo", length = 500)
   private String reason;
 
-  @Column(nullable = false)
+  @Column(name = "ocurrido_en", nullable = false)
   private Instant occurredAt;
 
-  @Column(nullable = false, length = 30)
+  @Column(name = "estado", nullable = false, length = 30)
   private String status;
 
-  @Column(nullable = false, precision = 12, scale = 2)
+  @Column(name = "total", nullable = false, precision = 12, scale = 2)
   private BigDecimal total;
 
-  @Column(columnDefinition = "text")
+  @Column(name = "productos_json", columnDefinition = "text")
   private String itemsJson;
 
   // Null identifica consumos de entregas pendientes creados por la versión anterior.
-  private Long stockRevision;
+  @Column(name = "revision_existencias") private Long stockRevision;
 
-  @Column(nullable = false)
+  @Column(name = "reporteria_enviada", nullable = false)
   private boolean reportSent;
 
-  @Column(nullable = false)
+  @Column(name = "existencias_confirmadas", nullable = false)
   private boolean stockSent;
 
   // Nullable para conservar los eventos anteriores durante la actualización.
-  private Boolean stockFallido = false;
+  @Column(name = "fallo_existencias") private Boolean stockFallido = false;
 
   // Nullable para incorporar filas anteriores sin perder eventos históricos.
-  private Boolean auditoriaEnviada = false;
-  private Boolean notificacionesEnviadas = false;
+  @Column(name = "auditoria_enviada") private Boolean auditoriaEnviada = false;
+  @Column(name = "notificaciones_enviadas") private Boolean notificacionesEnviadas = false;
 
-  @Column(columnDefinition = "text")
+  @Column(name = "notificaciones_json", columnDefinition = "text")
   private String notificacionesJson;
 }

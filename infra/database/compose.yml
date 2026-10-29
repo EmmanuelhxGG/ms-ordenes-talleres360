@@ -1,0 +1,27 @@
+name: talleres360-bd
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      POSTGRES_DB: talleres360
+      POSTGRES_USER: ${DB_ADMIN_USER:?Configura DB_ADMIN_USER en infra/database/.env}
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:?Configura DB_ADMIN_PASSWORD en infra/database/.env}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      TZ: America/Santiago
+    ports:
+      - "127.0.0.1:5432:5432"
+      - "${DB_BIND_ADDRESS:?Configura la IP privada de la EC2}:5432:5432"
+    volumes:
+      - datos_talleres360:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U $$POSTGRES_USER -d talleres360"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "2"}
+volumes:
+  datos_talleres360:
